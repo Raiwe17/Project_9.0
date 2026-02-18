@@ -1,6 +1,13 @@
 
 import { CanvasElement, ElementType, CustomComponentDefinition, SavedNodeGroup, Page } from '../types';
 import { evaluateNodeGraph } from './evaluate';
+import { GOOGLE_FONTS } from '../constants';
+
+const getYoutubeId = (url: string) => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+};
 
 export const generateHTML = (
     elements: CanvasElement[], 
@@ -33,11 +40,9 @@ export const generateHTML = (
       case ElementType.INPUT:
         return "w-full h-full px-3 text-sm rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-transparent";
       case ElementType.IMAGE_PLACEHOLDER:
-        return "w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50";
       case ElementType.VIDEO_PLACEHOLDER:
-        return "w-full h-full flex flex-col items-center justify-center text-gray-400 relative overflow-hidden";
       case ElementType.AVATAR:
-        return "w-full h-full flex items-center justify-center overflow-hidden";
+        return "w-full h-full overflow-hidden";
       case ElementType.DIVIDER:
         return "w-full h-full flex items-center";
       case ElementType.CONTAINER:
@@ -56,7 +61,7 @@ export const generateHTML = (
     if (style.backgroundImage) css += `background-image: ${style.backgroundImage}; `;
     if (style.color) css += `color: ${style.color}; `;
     if (style.fontWeight) css += `font-weight: ${style.fontWeight}; `;
-    if (style.fontFamily) css += `font-family: ${style.fontFamily}; `;
+    if (style.fontFamily) css += `font-family: '${style.fontFamily}', sans-serif; `;
     if (style.opacity !== undefined) css += `opacity: ${style.opacity}; `;
     if (style.display) css += `display: ${style.display}; `;
     if (style.alignItems) css += `align-items: ${style.alignItems}; `;
@@ -73,6 +78,8 @@ export const generateHTML = (
     if (style.marginTop) css += `margin-top: ${pxToVw(style.marginTop)}; `;
     if (style.marginLeft) css += `margin-left: ${pxToVw(style.marginLeft)}; `;
     if (style.gap) css += `gap: ${pxToVw(style.gap)}; `;
+    if (style.textShadow) css += `text-shadow: ${style.textShadow}; `;
+    if (style.objectFit) css += `object-fit: ${style.objectFit}; `;
 
     // Scale these properties to vw
     if (style.borderRadius) css += `border-radius: ${pxToVw(style.borderRadius)}; `;
@@ -170,11 +177,35 @@ export const generateHTML = (
         tag = el.type === ElementType.BUTTON ? 'button' : 'div';
         innerContentHTML = textWrapper(finalContent);
     } else if (el.type === ElementType.IMAGE_PLACEHOLDER) {
-        innerContentHTML = `<svg ...>...</svg>`; // abbreviated for brevity, same as before
+        if (el.src) {
+            tag = 'img';
+            // We use 'src' attribute on the main tag, no inner HTML
+            // Note: We need to inject src into the tag generation logic below or handle it specifically
+        } else {
+             innerContentHTML = `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; color:#9ca3af; height:100%;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+             </div>`;
+        }
     } else if (el.type === ElementType.VIDEO_PLACEHOLDER) {
-         innerContentHTML = `<div...>...</div>`; // abbreviated
+         if (el.src) {
+             const ytId = getYoutubeId(el.src);
+             if (ytId) {
+                 innerContentHTML = `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/${ytId}?autoplay=${el.videoOptions?.autoplay ? 1 : 0}&controls=${el.videoOptions?.controls === false ? 0 : 1}&loop=${el.videoOptions?.loop ? 1 : 0}&playlist=${el.videoOptions?.loop ? ytId : ''}&mute=${el.videoOptions?.muted ? 1 : 0}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" style="border-radius: inherit; pointer-events: auto;"></iframe>`;
+             } else {
+                 tag = 'video';
+                 // src will be added below
+             }
+         } else {
+            innerContentHTML = `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; color:#9ca3af; height:100%;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
+            </div>`;
+         }
     } else if (el.type === ElementType.AVATAR) {
-         innerContentHTML = `<svg...>...</svg>`; // abbreviated
+         if (el.src) {
+             tag = 'img';
+         } else {
+             innerContentHTML = `<svg width="50%" height="50%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`;
+         }
     } else if (el.type === ElementType.DIVIDER) {
         innerContentHTML = `<div style="width:100%; height:1px; background-color:${effectiveStyle.backgroundColor || '#d1d5db'};"></div>`;
     } else if (el.type === ElementType.INPUT) {
@@ -187,9 +218,23 @@ export const generateHTML = (
         innerContentHTML = textWrapper(finalContent);
     }
 
+    // Special handling for tags that use SRC attribute
+    let srcAttr = '';
+    let extraAttrs = '';
+    if (tag === 'img') {
+        srcAttr = `src="${el.src}" alt="${el.alt || ''}"`;
+    } else if (tag === 'video') {
+        srcAttr = `src="${el.src}"`;
+        if (el.videoOptions?.autoplay) extraAttrs += ' autoplay';
+        if (el.videoOptions?.loop) extraAttrs += ' loop';
+        if (el.videoOptions?.muted) extraAttrs += ' muted';
+        if (el.videoOptions?.controls !== false) extraAttrs += ' controls'; // default true
+        extraAttrs += ' playsinline';
+    }
+
     return `
       <div id="${el.id}-wrapper" style="${wrapperStyle}">
-        <${tag} data-el-id="${el.id}" class="${tailwindClass}" style="${contentStyleCSS}">
+        <${tag} data-el-id="${el.id}" class="${tailwindClass}" style="${contentStyleCSS}" ${srcAttr} ${extraAttrs}>
            ${innerContentHTML}
            ${innerHTML}
         </${tag}>
@@ -227,6 +272,19 @@ export const generateHTML = (
 
   const containerHeightVw = (height / width) * 100;
 
+  // Collect Fonts
+  const fontsToLoad = new Set<string>();
+  elements.forEach(el => {
+      if (el.style.fontFamily && GOOGLE_FONTS.includes(el.style.fontFamily)) {
+          fontsToLoad.add(el.style.fontFamily);
+      }
+  });
+  let fontLink = '';
+  if (fontsToLoad.size > 0) {
+      const query = Array.from(fontsToLoad).map(f => `family=${f.replace(/ /g, '+')}:wght@400;700`).join('&');
+      fontLink = `<link href="https://fonts.googleapis.com/css2?${query}&display=swap" rel="stylesheet">`;
+  }
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -234,6 +292,7 @@ export const generateHTML = (
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Exported Project</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    ${fontLink}
     <style>
         body { margin: 0; padding: 0; overflow-x: hidden; background-color: #ffffff; font-family: sans-serif; }
         #app-root { position: relative; width: 100vw; height: ${containerHeightVw}vw; overflow: hidden; }
@@ -263,6 +322,8 @@ export const generateHTML = (
                     el.addEventListener('mouseenter', () => { this.state.hovers[id] = true; });
                     el.addEventListener('mouseleave', () => { this.state.hovers[id] = false; });
                     el.addEventListener('click', (e) => { 
+                        // Don't stop propagation if it's a link or form input
+                        if (['A','INPUT','BUTTON'].includes(e.target.tagName)) return;
                         e.stopPropagation();
                         this.state.clicks[id] = !this.state.clicks[id]; 
                     });
