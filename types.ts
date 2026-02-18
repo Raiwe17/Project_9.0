@@ -146,6 +146,7 @@ export interface ElementStyle {
   justifyContent?: string;
   gap?: number; // Added for flex gap
   boxShadow?: string;
+  textShadow?: string; // Added for text highlighting
   transform?: string; // Rotate/Scale
   animation?: string; // CSS Animation string
   transition?: string; // CSS Transition string
@@ -153,6 +154,14 @@ export interface ElementStyle {
   letterSpacing?: string; // Added for text control
   marginTop?: number; // Added for spacing
   marginLeft?: number; // Added for spacing
+  objectFit?: 'cover' | 'contain' | 'fill'; // For images
+}
+
+export interface VideoOptions {
+    autoplay?: boolean;
+    loop?: boolean;
+    muted?: boolean;
+    controls?: boolean;
 }
 
 export interface CanvasElement {
@@ -174,6 +183,12 @@ export interface CanvasElement {
   x: number;
   y: number;
   content?: string;
+  
+  // Media Properties
+  src?: string;
+  alt?: string;
+  videoOptions?: VideoOptions;
+
   width: number;
   height: number;
   style: ElementStyle;
