@@ -15,7 +15,6 @@ import { Download, Play, GripHorizontal, GripVertical, Workflow, RotateCcw, Save
 const SIDEBAR_WIDTH = 240;
 const CANVAS_WIDTH_DEFAULT = 1280; 
 const CANVAS_HEIGHT_DEFAULT = 1400;
-const STORAGE_KEY = 'flowbuilder_project_data_v1';
 
 // --- PRE-MADE SCRIPTS ---
 
@@ -965,10 +964,9 @@ const App: React.FC = () => {
                       <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4 text-blue-600">
                           <Workflow size={24} />
                       </div>
-                      <h2 className="text-xl font-bold text-gray-800 mb-2">FlowBuilder MVP</h2>
+                      <h2 className="text-xl font-bold text-gray-800 mb-2">OCK -очень крутой конструктор сайтов</h2>
                       <p className="text-sm text-gray-500 mb-6 leading-relaxed">
-                          Визуальный конструктор сайтов с возможностью создания логики через нодовый редактор.
-                          Поддерживает создание компонентов, анимации, скрипты взаимодействия и экспорт в чистый HTML.
+                          Создан Морозовым Елисеем. 9К
                       </p>
                       <div className="w-full bg-gray-50 rounded p-3 text-xs text-gray-500 border border-gray-100">
                           <div className="flex justify-between mb-1">
