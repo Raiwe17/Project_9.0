@@ -15,6 +15,12 @@ interface RenderedElementProps {
   scripts?: SavedNodeGroup[]; 
 }
 
+const getYoutubeId = (url: string) => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+};
+
 export const RenderedElement: React.FC<RenderedElementProps> = ({ 
   element, 
   isSelected, 
@@ -137,9 +143,11 @@ export const RenderedElement: React.FC<RenderedElementProps> = ({
     justifyContent: effectiveStyle.justifyContent,
     gap: effectiveStyle.gap ? `${effectiveStyle.gap}px` : undefined,
     boxShadow: effectiveStyle.boxShadow,
+    textShadow: effectiveStyle.textShadow,
     transform: effectiveStyle.transform,
     animation: effectiveStyle.animation, // CSS Animation string
     transition: effectiveStyle.transition, // CSS Transition string
+    objectFit: effectiveStyle.objectFit
   };
 
   const wrapperStyle: React.CSSProperties = {
@@ -255,6 +263,21 @@ export const RenderedElement: React.FC<RenderedElementProps> = ({
           </div>
         );
       case ElementType.IMAGE_PLACEHOLDER:
+        if (element.src) {
+            return (
+                <img 
+                    src={element.src} 
+                    alt={element.alt || 'image'} 
+                    className="w-full h-full pointer-events-none"
+                    style={{ 
+                        objectFit: effectiveStyle.objectFit,
+                        borderRadius: finalContentStyle.borderRadius,
+                        opacity: finalContentStyle.opacity,
+                        border: finalContentStyle.borderWidth ? `${finalContentStyle.borderWidth} solid ${finalContentStyle.borderColor}` : undefined
+                    }} 
+                />
+            )
+        }
         return (
           <div 
             className="w-full h-full flex flex-col items-center justify-center text-gray-400"
@@ -266,6 +289,38 @@ export const RenderedElement: React.FC<RenderedElementProps> = ({
           </div>
         );
       case ElementType.VIDEO_PLACEHOLDER:
+        if (element.src) {
+             const ytId = getYoutubeId(element.src);
+             if (ytId) {
+                 return (
+                     <iframe
+                        width="100%"
+                        height="100%"
+                        src={`https://www.youtube.com/embed/${ytId}?autoplay=${element.videoOptions?.autoplay ? 1 : 0}&controls=${element.videoOptions?.controls === false ? 0 : 1}&loop=${element.videoOptions?.loop ? 1 : 0}&playlist=${element.videoOptions?.loop ? ytId : ''}&mute=${element.videoOptions?.muted ? 1 : 0}`}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        style={{ 
+                            borderRadius: finalContentStyle.borderRadius,
+                            pointerEvents: 'none' // Disable interaction in editor
+                        }}
+                     />
+                 );
+             }
+             return (
+                 <video
+                    src={element.src}
+                    className="w-full h-full"
+                    style={{ 
+                        objectFit: effectiveStyle.objectFit,
+                        borderRadius: finalContentStyle.borderRadius,
+                    }}
+                    autoPlay={element.videoOptions?.autoplay}
+                    loop={element.videoOptions?.loop}
+                    muted={element.videoOptions?.muted}
+                    controls={element.videoOptions?.controls}
+                    playsInline
+                 />
+             );
+        }
         return (
           <div 
             className="w-full h-full flex flex-col items-center justify-center text-gray-400 relative"
@@ -279,6 +334,20 @@ export const RenderedElement: React.FC<RenderedElementProps> = ({
           </div>
         );
       case ElementType.AVATAR:
+        if (element.src) {
+             return (
+                <img 
+                    src={element.src} 
+                    alt={element.alt || 'avatar'} 
+                    className="w-full h-full pointer-events-none"
+                    style={{ 
+                        objectFit: effectiveStyle.objectFit,
+                        borderRadius: '9999px',
+                        opacity: finalContentStyle.opacity
+                    }} 
+                />
+            );
+        }
         return (
           <div 
             className="w-full h-full flex flex-col items-center justify-center overflow-hidden"
