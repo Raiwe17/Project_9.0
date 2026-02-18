@@ -8,7 +8,7 @@ import { PropertiesPanel } from './components/PropertiesPanel';
 import { HierarchyPanel } from './components/HierarchyPanel';
 import { NodeEditor } from './components/NodeEditor';
 import { AppMode, CanvasElement, ContextMenuState, ElementType, ResizeState, ResizeHandle, DragState, CustomComponentDefinition, ElementStyle, SavedNodeGroup, NodeType, Page } from './types';
-import { TOOLS } from './constants';
+import { TOOLS, GOOGLE_FONTS } from './constants';
 import { generateHTML } from './utils/generator';
 import { Download, Play, GripHorizontal, GripVertical, Workflow, RotateCcw, Save, Menu, Upload, FileJson, Info, X, Check, Box } from 'lucide-react';
 
@@ -224,6 +224,32 @@ const App: React.FC = () => {
       }
   }, [pages, elements, customComponents, savedNodeGroups, canvasSize]);
 
+  // --- FONT LOADING EFFECT ---
+  useEffect(() => {
+      const fontsToLoad = new Set<string>();
+      elements.forEach(el => {
+          if (el.style.fontFamily && GOOGLE_FONTS.includes(el.style.fontFamily)) {
+              fontsToLoad.add(el.style.fontFamily);
+          }
+      });
+      
+      const fontArray = Array.from(fontsToLoad);
+      if (fontArray.length === 0) return;
+
+      const query = fontArray.map(font => `family=${font.replace(/ /g, '+')}:wght@400;700`).join('&');
+      const href = `https://fonts.googleapis.com/css2?${query}&display=swap`;
+      
+      let link = document.getElementById('dynamic-google-fonts') as HTMLLinkElement;
+      if (!link) {
+          link = document.createElement('link');
+          link.id = 'dynamic-google-fonts';
+          link.rel = 'stylesheet';
+          document.head.appendChild(link);
+      }
+      link.href = href;
+
+  }, [elements]);
+
   // --- PAGE OPERATIONS ---
   const handleAddPage = () => {
       const newPage: Page = {
@@ -285,7 +311,10 @@ const App: React.FC = () => {
   };
 
   const handleLoadProjectClick = () => {
-      fileInputRef.current?.click();
+      if (fileInputRef.current) {
+          fileInputRef.current.value = ''; // Reset value before clicking to ensure onChange triggers even for same file
+          fileInputRef.current.click();
+      }
       setIsMainMenuOpen(false);
   };
 
@@ -297,6 +326,8 @@ const App: React.FC = () => {
       reader.onload = (event) => {
           try {
               const json = event.target?.result as string;
+              if (!json) throw new Error("Empty file content");
+              
               const data = JSON.parse(json);
               
               if (window.confirm("Загрузка проекта заменит текущий холст. Продолжить?")) {
@@ -326,13 +357,11 @@ const App: React.FC = () => {
                   setMode('SELECT');
               }
           } catch (err) {
-              alert("Ошибка при чтении файла проекта.");
+              alert("Ошибка при чтении файла проекта. Проверьте формат JSON.");
               console.error(err);
           }
       };
       reader.readAsText(file);
-      // Reset input to allow selecting the same file again
-      e.target.value = '';
   };
 
   // Calculate coordinates relative to the Canvas
@@ -1032,15 +1061,16 @@ const App: React.FC = () => {
                           </button>
                       </div>
                   )}
-                  {/* File input moved OUTSIDE the conditional menu rendering to ensure it's always available for events */}
-                  <input 
-                      type="file" 
-                      ref={fileInputRef} 
-                      className="hidden" 
-                      accept=".json"
-                      onChange={handleFileChange}
-                  />
               </div>
+              
+              {/* File input moved OUTSIDE the dropdown container completely to prevent unmounting/remounting issues */}
+              <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  className="hidden" 
+                  accept=".json"
+                  onChange={handleFileChange}
+              />
 
               <div className="flex flex-col leading-none">
                   <span className="text-sm font-semibold text-gray-700 flex items-center select-none">
