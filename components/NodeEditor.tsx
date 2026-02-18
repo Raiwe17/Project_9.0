@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { GraphNode, GraphConnection, NodeType, CustomComponentDefinition, SavedNodeGroup, Page } from '../types';
-import { Save, Plus, Box, Palette, Type, Droplet, Trash2, Component, Stamp, Calculator, Link, Hash, ToggleLeft, Split, ArrowLeft, Eye, EyeOff, BoxSelect, Maximize, Merge, Pencil, X, Minus, X as MultiplyIcon, Divide, Equal, Check, Layers, ArrowUpAz, GripHorizontal, MoveHorizontal, Unlink, Move, List, ListChecks, Braces, Ruler, Dices, Ban, Sigma, MousePointerClick, MousePointer2, Timer, Waves, ArrowDownZa, ArrowLeftRight, CaseSensitive, Clapperboard, FastForward, Navigation } from 'lucide-react';
+import { Save, Plus, Box, Palette, Type, Droplet, Trash2, Component, Stamp, Calculator, Link, Hash, ToggleLeft, Split, ArrowLeft, Eye, EyeOff, BoxSelect, Maximize, Merge, Pencil, X, Minus, X as MultiplyIcon, Divide, Equal, Check, Layers, ArrowUpAz, GripHorizontal, MoveHorizontal, Unlink, Move, List, ListChecks, Braces, Ruler, Dices, Ban, Sigma, MousePointerClick, MousePointer2, Timer, Waves, ArrowDownZa, ArrowLeftRight, CaseSensitive, Clapperboard, FastForward, Navigation, ExternalLink, MessageSquareWarning } from 'lucide-react';
 import { NodeContextMenu } from './NodeContextMenu';
 import { ColorPicker } from './ColorPicker';
 
@@ -106,11 +106,31 @@ const NODE_CONFIG: Record<NodeType, {
       ]
   },
   [NodeType.NAVIGATE]: {
-      label: 'Переход (Навигация)',
+      label: 'Переход (Страница)',
       icon: Navigation,
       color: 'bg-orange-700',
       inputs: [
           { id: 'in-trigger', label: 'Активация', type: 'boolean' }
+      ],
+      outputs: []
+  },
+  [NodeType.LINK]: {
+      label: 'Ссылка (URL)',
+      icon: ExternalLink,
+      color: 'bg-cyan-700',
+      inputs: [
+          { id: 'in-trigger', label: 'Активация', type: 'boolean' },
+          { id: 'in-url', label: 'URL', type: 'string' }
+      ],
+      outputs: []
+  },
+  [NodeType.ALERT]: {
+      label: 'Предупреждение',
+      icon: MessageSquareWarning,
+      color: 'bg-red-600',
+      inputs: [
+          { id: 'in-trigger', label: 'Активация', type: 'boolean' },
+          { id: 'in-message', label: 'Сообщение', type: 'string' }
       ],
       outputs: []
   },
@@ -756,6 +776,8 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({
      else if (type === NodeType.TOGGLE) defaultValue = true;
      else if (type === NodeType.ANIMATION) defaultValue = 'fadeIn';
      else if (type === NodeType.NAVIGATE && pages.length > 0) defaultValue = pages[0].id; // Default to first page
+     else if (type === NodeType.LINK) defaultValue = 'https://google.com';
+     else if (type === NodeType.ALERT) defaultValue = 'Hello World!';
 
      const inputCount = type === NodeType.ARRAY ? 2 : undefined;
      const newNode: GraphNode = {
@@ -918,10 +940,10 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({
       const ROW_HEIGHT = 20; 
       const ROW_GAP = 8;
       let customInputHeight = 0;
-      const exposable = [NodeType.TEXT, NodeType.COLOR, NodeType.NUMBER, NodeType.TOGGLE].includes(node.type);
+      const exposable = [NodeType.TEXT, NodeType.COLOR, NodeType.NUMBER, NodeType.TOGGLE, NodeType.LINK, NodeType.ALERT].includes(node.type);
       const isExposed = node.data.exposed;
 
-      if (node.type === NodeType.COLOR || node.type === NodeType.NUMBER || node.type === NodeType.TOGGLE || node.type === NodeType.ANIMATION || node.type === NodeType.NAVIGATE) customInputHeight = 44; 
+      if (node.type === NodeType.COLOR || node.type === NodeType.NUMBER || node.type === NodeType.TOGGLE || node.type === NodeType.ANIMATION || node.type === NodeType.NAVIGATE || node.type === NodeType.LINK || node.type === NodeType.ALERT) customInputHeight = 44; 
       if (node.type === NodeType.TEXT) customInputHeight = 58;
       if (node.type === NodeType.TIMER) customInputHeight = 0;
 
@@ -1065,7 +1087,7 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({
                  {nodes.map(node => {
                      const config = NODE_CONFIG[node.type];
                      const isSelected = selectedNodeIds.has(node.id);
-                     const exposable = [NodeType.TEXT, NodeType.COLOR, NodeType.NUMBER, NodeType.TOGGLE].includes(node.type);
+                     const exposable = [NodeType.TEXT, NodeType.COLOR, NodeType.NUMBER, NodeType.TOGGLE, NodeType.LINK, NodeType.ALERT].includes(node.type);
                      const dynamicInputs = node.type === NodeType.ARRAY ? Array.from({length: node.data.inputCount || 0}).map((_, i) => ({ id: `in-${i}`, label: `Индекс ${i}`, type: 'any' })) : config.inputs;
 
                      return (
@@ -1106,6 +1128,32 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({
                                                 <option key={page.id} value={page.id}>{page.name}</option>
                                             ))}
                                         </select>
+                                    </div>
+                                )}
+                                {node.type === NodeType.LINK && (
+                                    <div className="mb-3">
+                                        <label className="text-[10px] text-gray-300 uppercase font-bold mb-1 block">URL</label>
+                                        <input 
+                                            type="text"
+                                            value={node.data.value || ''}
+                                            onChange={(e) => handleNodeDataChange(node.id, 'value', e.target.value)}
+                                            className="w-full bg-black/30 text-xs p-1 rounded border-none focus:ring-1 focus:ring-blue-500 text-gray-200"
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                            placeholder="https://..."
+                                        />
+                                    </div>
+                                )}
+                                {node.type === NodeType.ALERT && (
+                                    <div className="mb-3">
+                                        <label className="text-[10px] text-gray-300 uppercase font-bold mb-1 block">Сообщение</label>
+                                        <textarea
+                                            value={node.data.value || ''}
+                                            onChange={(e) => handleNodeDataChange(node.id, 'value', e.target.value)}
+                                            className="w-full bg-black/30 text-xs p-1 rounded border-none focus:ring-1 focus:ring-blue-500 text-gray-200 resize-y"
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                            placeholder="Текст сообщения..."
+                                            rows={2}
+                                        />
                                     </div>
                                 )}
                                 {node.type === NodeType.ANIMATION && (

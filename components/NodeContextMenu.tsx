@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { NodeType } from '../types';
-import { Box, Palette, Type, Droplet, Search, Calculator, Link, Hash, ToggleLeft, Split, BoxSelect, Maximize, Merge, Minus, X, Divide, Equal, ArrowLeft, Check, Layers, ArrowUpAz, Move, List, Braces, Ruler, ListChecks, Dices, Sigma, Ban, MousePointerClick, MousePointer2, Timer, Waves, ArrowDownZa, ArrowLeftRight, CaseSensitive, Clapperboard, FastForward, Navigation } from 'lucide-react';
+import { Box, Palette, Type, Droplet, Search, Calculator, Link, Hash, ToggleLeft, Split, BoxSelect, Maximize, Merge, Minus, X, Divide, Equal, ArrowLeft, Check, Layers, ArrowUpAz, Move, List, Braces, Ruler, ListChecks, Dices, Sigma, Ban, MousePointerClick, MousePointer2, Timer, Waves, ArrowDownZa, ArrowLeftRight, CaseSensitive, Clapperboard, FastForward, Navigation, ExternalLink, MessageSquareWarning } from 'lucide-react';
 
 interface NodeContextMenuProps {
   x: number;
@@ -19,7 +19,9 @@ const CATEGORIES = [
             { type: NodeType.INTERACTION_HOVER, label: 'При наведении', icon: MousePointer2, color: 'text-red-400' },
             { type: NodeType.INTERACTION_CLICK, label: 'При клике (Toggle)', icon: MousePointerClick, color: 'text-red-400' },
             { type: NodeType.TIMER, label: 'Таймер / Анимация', icon: Timer, color: 'text-red-500' },
-            { type: NodeType.NAVIGATE, label: 'Переход (Навигация)', icon: Navigation, color: 'text-orange-400' },
+            { type: NodeType.NAVIGATE, label: 'Переход (Страница)', icon: Navigation, color: 'text-orange-400' },
+            { type: NodeType.LINK, label: 'Ссылка (URL)', icon: ExternalLink, color: 'text-cyan-400' },
+            { type: NodeType.ALERT, label: 'Предупреждение', icon: MessageSquareWarning, color: 'text-red-600' },
         ]
     },
     {

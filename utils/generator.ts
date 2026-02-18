@@ -308,10 +308,26 @@ export const generateHTML = (
                     switch (node.type) {
                         case 'NAVIGATE': {
                              const trigger = getVal('in-trigger');
-                             // Simple rising edge detection could be implemented here if needed,
-                             // but for now if trigger is true, we navigate.
                              if (trigger === true && val) {
                                  this.navigateTo(val);
+                             }
+                             break;
+                        }
+                        case 'LINK': {
+                             const trigger = getVal('in-trigger');
+                             const url = getVal('in-url') || val;
+                             if (trigger === true && url) {
+                                 window.location.href = url;
+                             }
+                             break;
+                        }
+                        case 'ALERT': {
+                             const trigger = getVal('in-trigger');
+                             const msg = getVal('in-message') || val;
+                             // Note: continuously triggering alert is blocking and annoying, but technically correct for this visual logic.
+                             // Browser will usually pause execution loop after alert closes.
+                             if (trigger === true && msg) {
+                                 alert(msg);
                              }
                              break;
                         }
@@ -330,8 +346,12 @@ export const generateHTML = (
                     return res;
                 };
 
-                // Trigger navigation nodes by evaluating them
-                def.nodes.filter(n => n.type === 'NAVIGATE').forEach(n => evaluateNode(n.id));
+                // Trigger action nodes
+                def.nodes.forEach(n => {
+                    if (['NAVIGATE', 'LINK', 'ALERT'].includes(n.type)) {
+                        evaluateNode(n.id);
+                    }
+                });
 
                 // Standard Output
                 if (!outputNode) return { style: {}, content: '' };
@@ -398,4 +418,3 @@ export const generateHTML = (
 </body>
 </html>`;
 }
-  

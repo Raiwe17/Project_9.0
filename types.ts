@@ -71,7 +71,9 @@ export enum NodeType {
   INTERACTION_HOVER = 'INTERACTION_HOVER', // True when mouse over
   INTERACTION_CLICK = 'INTERACTION_CLICK', // Toggles True/False on click
   TIMER = 'TIMER',      // Continuous time value for animations
-  NAVIGATE = 'NAVIGATE' // Change active page
+  NAVIGATE = 'NAVIGATE', // Change active page
+  LINK = 'LINK',        // Open external URL
+  ALERT = 'ALERT'       // Browser Alert
 }
 
 export interface NodeSocket {

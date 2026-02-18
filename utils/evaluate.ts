@@ -73,7 +73,9 @@ export const evaluateNodeGraph = (
           case NodeType.COLOR:
           case NodeType.NUMBER:
           case NodeType.TOGGLE:
-          case NodeType.NAVIGATE: // Just return the Page ID string
+          case NodeType.NAVIGATE: 
+          case NodeType.LINK:
+          case NodeType.ALERT:
           case NodeType.ANIMATION: // Store animation type in value
               result = node.data.value;
               break;
