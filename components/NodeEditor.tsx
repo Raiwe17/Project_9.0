@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { GraphNode, GraphConnection, NodeType, CustomComponentDefinition, SavedNodeGroup, Page } from '../types';
 import { Save, Plus, Box, Palette, Type, Droplet, Trash2, Component, Stamp, Calculator, Link, Hash, ToggleLeft, Split, ArrowLeft, Eye, EyeOff, BoxSelect, Maximize, Merge, Pencil, X, Minus, X as MultiplyIcon, Divide, Equal, Check, Layers, ArrowUpAz, GripHorizontal, MoveHorizontal, Unlink, Move, List, ListChecks, Braces, Ruler, Dices, Ban, Sigma, MousePointerClick, MousePointer2, Timer, Waves, ArrowDownZa, ArrowLeftRight, CaseSensitive, Clapperboard, FastForward, Navigation, ExternalLink, MessageSquareWarning } from 'lucide-react';
@@ -609,6 +609,9 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({
   const [isSaveGroupModalOpen, setIsSaveGroupModalOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState('Новый Скрипт');
 
+  // Automatic Socket Position State
+  const [socketOffsets, setSocketOffsets] = useState<Record<string, Record<string, number>>>({});
+
   const canvasRef = useRef<HTMLDivElement>(null);
 
   // Initialize Data
@@ -630,7 +633,61 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({
     }
   }, [initialData]);
 
-  // --- HELPERS & HANDLERS (Same as before, abbreviated) ---
+  // Measure socket positions on layout change
+  useLayoutEffect(() => {
+    const newOffsets: Record<string, Record<string, number>> = {};
+    let hasUpdates = false;
+
+    nodes.forEach(node => {
+      const nodeEl = document.getElementById(`node-${node.id}`);
+      if (!nodeEl) return;
+
+      const nodeRect = nodeEl.getBoundingClientRect();
+      const socketEls = nodeEl.querySelectorAll('[data-socket]');
+
+      if (socketEls.length > 0) {
+        newOffsets[node.id] = {};
+        socketEls.forEach((el) => {
+          const socketId = el.getAttribute('data-socket');
+          if (socketId) {
+             const socketRect = el.getBoundingClientRect();
+             // Calculate center of socket row relative to node top
+             // Normalize by scale to get consistent logic CSS pixels
+             const offset = ((socketRect.top + socketRect.height / 2) - nodeRect.top) / scale;
+             newOffsets[node.id][socketId] = offset;
+          }
+        });
+        hasUpdates = true;
+      }
+    });
+
+    if (hasUpdates) {
+        let changed = false;
+        // Simple check to avoid infinite loops if measurements oscillate slightly
+        // or if keys differ
+        if (Object.keys(newOffsets).length !== Object.keys(socketOffsets).length) {
+            changed = true;
+        } else {
+            for (const nid in newOffsets) {
+                if (!socketOffsets[nid]) { changed = true; break; }
+                for (const sid in newOffsets[nid]) {
+                    // Check for significant change (> 0.5px) to update
+                    if (Math.abs((socketOffsets[nid][sid] || 0) - newOffsets[nid][sid]) > 0.5) {
+                        changed = true;
+                        break;
+                    }
+                }
+                if (changed) break;
+            }
+        }
+
+        if (changed) {
+            setSocketOffsets(newOffsets);
+        }
+    }
+  }, [nodes, scale, componentName]); // Re-run when layout might change
+
+  // --- HELPERS & HANDLERS ---
   const screenToWorld = (screenX: number, screenY: number) => {
       const rect = canvasRef.current?.getBoundingClientRect();
       const rx = rect ? (screenX - rect.left) : 0;
@@ -935,6 +992,13 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({
   const openColorPicker = (nodeId: string, e: React.MouseEvent, currentColor: string) => { e.stopPropagation(); setActiveColorPicker({ nodeId, x: e.clientX, y: e.clientY, initialColor: currentColor || '#ffffff' }); };
 
   const getSocketPosition = (node: GraphNode, socketId: string, isInput: boolean) => {
+      // 1. Prefer measured position
+      const measuredOffset = socketOffsets[node.id]?.[socketId];
+      if (measuredOffset !== undefined) {
+          return node.y + measuredOffset;
+      }
+      
+      // 2. Fallback to manual estimate
       const config = NODE_CONFIG[node.type];
       const HEADER_HEIGHT = 38; 
       const BODY_PADDING = 12;
@@ -1093,7 +1157,7 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({
                      const dynamicInputs = node.type === NodeType.ARRAY ? Array.from({length: node.data.inputCount || 0}).map((_, i) => ({ id: `in-${i}`, label: `Индекс ${i}`, type: 'any' })) : config.inputs;
 
                      return (
-                        <div key={node.id} className={`absolute w-48 rounded-lg shadow-xl border flex flex-col z-10 overflow-hidden pointer-events-auto ${config.color} ${isSelected ? 'ring-2 ring-yellow-400 border-transparent' : 'border-gray-600'}`} style={{ left: node.x, top: node.y }} onMouseDown={(e) => handleNodeMouseDown(e, node.id)}>
+                        <div key={node.id} id={`node-${node.id}`} className={`absolute w-48 rounded-lg shadow-xl border flex flex-col z-10 overflow-hidden pointer-events-auto ${config.color} ${isSelected ? 'ring-2 ring-yellow-400 border-transparent' : 'border-gray-600'}`} style={{ left: node.x, top: node.y }} onMouseDown={(e) => handleNodeMouseDown(e, node.id)}>
                             <div className="px-3 py-2 bg-black/20 flex items-center justify-between cursor-grab active:cursor-grabbing h-[38px]">
                                 <div className="flex items-center text-sm font-semibold"><config.icon size={14} className="mr-2 opacity-75" />{config.label}</div>
                                  <div className="flex items-center">
@@ -1212,7 +1276,7 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({
                                 <div className="flex justify-between space-x-2">
                                     <div className="space-y-2 w-1/2">
                                         {dynamicInputs.map(input => (
-                                            <div key={input.id} className="flex items-center -ml-4 h-5 group/socket">
+                                            <div key={input.id} className="flex items-center -ml-4 h-5 group/socket" data-socket={input.id}>
                                                 <div className="w-3 h-3 rounded-full bg-blue-400 border border-white hover:scale-125 transition-transform cursor-crosshair ml-1.5 shrink-0" onMouseUp={(e) => handleSocketMouseUp(e, node.id, input.id)} onMouseDown={(e) => handleSocketMouseDown(e, node.id, input.id)} onContextMenu={(e) => handleSocketMouseDown(e, node.id, input.id)} title="ЛКМ: Тянуть | ПКМ/Alt: Отсоединить" />
                                                 <span className="text-[10px] ml-2 text-gray-300 truncate group-hover/socket:text-white transition-colors">{input.label}</span>
                                             </div>
@@ -1227,7 +1291,7 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({
                                     </div>
                                     <div className="space-y-2 text-right w-1/2">
                                         {config.outputs.map(output => (
-                                            <div key={output.id} className="flex items-center justify-end -mr-4 h-5 group/socket">
+                                            <div key={output.id} className="flex items-center justify-end -mr-4 h-5 group/socket" data-socket={output.id}>
                                                 <span className="text-[10px] mr-2 text-gray-300 truncate group-hover/socket:text-white transition-colors">{output.label}</span>
                                                 <div className="w-3 h-3 rounded-full bg-green-400 border border-white hover:scale-125 transition-transform cursor-crosshair mr-1.5 shrink-0" onMouseDown={(e) => handleSocketMouseDown(e, node.id, output.id)} onContextMenu={(e) => handleSocketMouseDown(e, node.id, output.id)} title="ЛКМ: Тянуть | ПКМ/Alt: Отсоединить" />
                                             </div>
