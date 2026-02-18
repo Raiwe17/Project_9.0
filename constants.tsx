@@ -1,3 +1,4 @@
+
 import { 
   Type, 
   MousePointer2, 
@@ -12,6 +13,22 @@ import {
   Tag
 } from 'lucide-react';
 import { ElementType, ToolDefinition } from './types';
+
+export const GOOGLE_FONTS = [
+    'Inter',
+    'Roboto',
+    'Open Sans',
+    'Lato',
+    'Montserrat',
+    'Poppins',
+    'Oswald',
+    'Raleway',
+    'Merriweather',
+    'Playfair Display',
+    'Nunito',
+    'Ubuntu',
+    'Rubik'
+];
 
 export const TOOLS: Record<ElementType, ToolDefinition> = {
   [ElementType.BUTTON]: {
@@ -134,7 +151,8 @@ export const TOOLS: Record<ElementType, ToolDefinition> = {
       borderRadius: 4,
       color: '#9ca3af',
       borderWidth: 0,
-      opacity: 1
+      opacity: 1,
+      objectFit: 'cover'
     }
   },
   [ElementType.VIDEO_PLACEHOLDER]: {
@@ -148,7 +166,8 @@ export const TOOLS: Record<ElementType, ToolDefinition> = {
       borderRadius: 4,
       color: '#6b7280',
       borderWidth: 0,
-      opacity: 1
+      opacity: 1,
+      objectFit: 'cover'
     }
   },
   [ElementType.AVATAR]: {
@@ -162,7 +181,8 @@ export const TOOLS: Record<ElementType, ToolDefinition> = {
       borderRadius: 9999, // Full circle
       color: '#9ca3af',
       borderWidth: 0,
-      opacity: 1
+      opacity: 1,
+      objectFit: 'cover'
     }
   },
   [ElementType.DIVIDER]: {
