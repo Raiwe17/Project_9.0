@@ -255,7 +255,7 @@ export const generateHTML = (
         const RUNTIME = {
             startTime: Date.now(),
             activePageId: PROJECT_DATA.pages[0]?.id,
-            state: { hovers: {}, clicks: {}, time: 0 },
+            state: { hovers: {}, clicks: {}, time: 0, triggerStates: {} },
             
             init: function() {
                 document.querySelectorAll('[data-el-id]').forEach(el => {
@@ -308,27 +308,40 @@ export const generateHTML = (
                     switch (node.type) {
                         case 'NAVIGATE': {
                              const trigger = getVal('in-trigger');
-                             if (trigger === true && val) {
+                             const prevTrigger = this.state.triggerStates[nodeId];
+                             
+                             if (trigger === true && !prevTrigger && val) {
                                  this.navigateTo(val);
                              }
+                             this.state.triggerStates[nodeId] = trigger;
                              break;
                         }
                         case 'LINK': {
                              const trigger = getVal('in-trigger');
+                             const prevTrigger = this.state.triggerStates[nodeId];
                              const url = getVal('in-url') || val;
-                             if (trigger === true && url) {
-                                 window.location.href = url;
+                             const newTab = getVal('in-new-tab') !== null ? getVal('in-new-tab') : node.data.newTab;
+
+                             if (trigger === true && !prevTrigger && url) {
+                                 if (newTab) {
+                                     window.open(url, '_blank');
+                                 } else {
+                                     window.location.href = url;
+                                 }
                              }
+                             this.state.triggerStates[nodeId] = trigger;
                              break;
                         }
                         case 'ALERT': {
                              const trigger = getVal('in-trigger');
+                             const prevTrigger = this.state.triggerStates[nodeId];
                              const msg = getVal('in-message') || val;
-                             // Note: continuously triggering alert is blocking and annoying, but technically correct for this visual logic.
-                             // Browser will usually pause execution loop after alert closes.
-                             if (trigger === true && msg) {
-                                 alert(msg);
+                             
+                             if (trigger === true && !prevTrigger && msg) {
+                                 // Use setTimeout to allow the UI update/frame to complete before blocking
+                                 setTimeout(() => alert(msg), 0);
                              }
+                             this.state.triggerStates[nodeId] = trigger;
                              break;
                         }
                         case 'INTERACTION_HOVER': res = context.isHovered; break;

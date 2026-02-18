@@ -120,7 +120,8 @@ const NODE_CONFIG: Record<NodeType, {
       color: 'bg-cyan-700',
       inputs: [
           { id: 'in-trigger', label: 'Активация', type: 'boolean' },
-          { id: 'in-url', label: 'URL', type: 'string' }
+          { id: 'in-url', label: 'URL', type: 'string' },
+          { id: 'in-new-tab', label: 'Новая вкладка', type: 'boolean' }
       ],
       outputs: []
   },
@@ -946,6 +947,7 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({
       if (node.type === NodeType.COLOR || node.type === NodeType.NUMBER || node.type === NodeType.TOGGLE || node.type === NodeType.ANIMATION || node.type === NodeType.NAVIGATE || node.type === NodeType.LINK || node.type === NodeType.ALERT) customInputHeight = 44; 
       if (node.type === NodeType.TEXT) customInputHeight = 58;
       if (node.type === NodeType.TIMER) customInputHeight = 0;
+      if (node.type === NodeType.LINK) customInputHeight = 88; // Extra height for new tab checkbox
 
       if (isExposed && exposable) customInputHeight += 36;
       const startY = node.y + HEADER_HEIGHT + BODY_PADDING + customInputHeight;
@@ -1132,15 +1134,27 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({
                                 )}
                                 {node.type === NodeType.LINK && (
                                     <div className="mb-3">
-                                        <label className="text-[10px] text-gray-300 uppercase font-bold mb-1 block">URL</label>
-                                        <input 
-                                            type="text"
-                                            value={node.data.value || ''}
-                                            onChange={(e) => handleNodeDataChange(node.id, 'value', e.target.value)}
-                                            className="w-full bg-black/30 text-xs p-1 rounded border-none focus:ring-1 focus:ring-blue-500 text-gray-200"
-                                            onMouseDown={(e) => e.stopPropagation()}
-                                            placeholder="https://..."
-                                        />
+                                        <div className="mb-2">
+                                            <label className="text-[10px] text-gray-300 uppercase font-bold mb-1 block">URL</label>
+                                            <input 
+                                                type="text"
+                                                value={node.data.value || ''}
+                                                onChange={(e) => handleNodeDataChange(node.id, 'value', e.target.value)}
+                                                className="w-full bg-black/30 text-xs p-1 rounded border-none focus:ring-1 focus:ring-blue-500 text-gray-200"
+                                                onMouseDown={(e) => e.stopPropagation()}
+                                                placeholder="https://..."
+                                            />
+                                        </div>
+                                        <div className="flex items-center">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={!!node.data.newTab} 
+                                                onChange={(e) => handleNodeDataChange(node.id, 'newTab', e.target.checked)} 
+                                                className="w-4 h-4 rounded bg-black/30 text-blue-500 border-none focus:ring-0 cursor-pointer" 
+                                                onMouseDown={(e) => e.stopPropagation()}
+                                            />
+                                            <span className="ml-2 text-xs text-gray-300">Открыть в новой вкладке</span>
+                                        </div>
                                     </div>
                                 )}
                                 {node.type === NodeType.ALERT && (
