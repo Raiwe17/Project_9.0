@@ -1072,7 +1072,7 @@ const App: React.FC = () => {
 
               <div className="flex flex-col leading-none">
                   <span className="text-sm font-semibold text-gray-700 flex items-center select-none">
-                      FlowBuilder
+                      OKC
                       {isSaved && <Check size={12} className="ml-2 text-green-500 opacity-50" title="Сохранено" />}
                   </span>
                   <span className="text-[10px] text-gray-500">
