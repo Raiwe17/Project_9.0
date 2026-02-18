@@ -272,6 +272,15 @@ export const generateHTML = (
 
             navigateTo: function(pageId) {
                 if (this.activePageId === pageId) return;
+
+                // Reset interaction states for elements on the page we are leaving
+                // This prevents "stuck" true states (like clicks) from triggering immediately when we return
+                const leavingElements = PROJECT_DATA.elements.filter(el => el.pageId === this.activePageId);
+                leavingElements.forEach(el => {
+                   this.state.clicks[el.id] = false;
+                   this.state.hovers[el.id] = false;
+                });
+
                 document.getElementById('page-' + this.activePageId)?.classList.add('hidden');
                 document.getElementById('page-' + pageId)?.classList.remove('hidden');
                 this.activePageId = pageId;
@@ -389,3 +398,4 @@ export const generateHTML = (
 </body>
 </html>`;
 }
+  
