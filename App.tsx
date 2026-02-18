@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { ContextMenu } from './components/ContextMenu';
@@ -6,76 +7,163 @@ import { StatusBar } from './components/StatusBar';
 import { PropertiesPanel } from './components/PropertiesPanel';
 import { HierarchyPanel } from './components/HierarchyPanel';
 import { NodeEditor } from './components/NodeEditor';
-import { AppMode, CanvasElement, ContextMenuState, ElementType, ResizeState, ResizeHandle, DragState, CustomComponentDefinition, ElementStyle, SavedNodeGroup, NodeType } from './types';
+import { AppMode, CanvasElement, ContextMenuState, ElementType, ResizeState, ResizeHandle, DragState, CustomComponentDefinition, ElementStyle, SavedNodeGroup, NodeType, Page } from './types';
 import { TOOLS } from './constants';
 import { generateHTML } from './utils/generator';
-import { Download, Play, GripHorizontal, GripVertical, Workflow } from 'lucide-react';
+import { Download, Play, GripHorizontal, GripVertical, Workflow, RotateCcw, Save, Menu, Upload, FileJson, Info, X, Check, Box } from 'lucide-react';
 
 const SIDEBAR_WIDTH = 240;
 const CANVAS_WIDTH_DEFAULT = 1280; 
-const CANVAS_HEIGHT_DEFAULT = 800;
+const CANVAS_HEIGHT_DEFAULT = 1400;
+const STORAGE_KEY = 'flowbuilder_project_data_v1';
 
-// Example function group for Logic
-const DEFAULT_SAVED_GROUPS: SavedNodeGroup[] = [
-    {
-        id: 'logic-demo-group',
-        name: 'Кнопка с Логикой',
-        nodes: [
-            { id: 'n1', type: NodeType.TOGGLE, x: 0, y: 0, data: { label: 'Переключатель', value: true } },
-            { id: 'n2', type: NodeType.TEXT, x: 200, y: -50, data: { label: 'Текст ВКЛ', value: 'Активно' } },
-            { id: 'n3', type: NodeType.TEXT, x: 200, y: 50, data: { label: 'Текст ВЫКЛ', value: 'Неактивно' } },
-            { id: 'n4', type: NodeType.IF_ELSE, x: 450, y: 0, data: { label: 'Если/Иначе', value: '' } },
-            { id: 'n5', type: NodeType.COLOR, x: 200, y: 150, data: { label: 'Цвет Фона', value: '#3b82f6' } },
-            { id: 'n6', type: NodeType.STYLE, x: 650, y: 100, data: { label: 'Стиль', value: '' } },
-        ],
-        connections: [
-            { id: 'c1', sourceNodeId: 'n1', sourceSocketId: 'out-bool', targetNodeId: 'n4', targetSocketId: 'in-condition' },
-            { id: 'c2', sourceNodeId: 'n2', sourceSocketId: 'out-text', targetNodeId: 'n4', targetSocketId: 'in-true' },
-            { id: 'c3', sourceNodeId: 'n3', sourceSocketId: 'out-text', targetNodeId: 'n4', targetSocketId: 'in-false' },
-            { id: 'c4', sourceNodeId: 'n5', sourceSocketId: 'out-color', targetNodeId: 'n6', targetSocketId: 'in-bg' },
-        ]
-    },
-    {
-        id: 'test-features-group',
-        name: 'Тест Новых Функций',
-        nodes: [
-            { id: 't1', type: NodeType.STYLE, x: 0, y: 0, data: { label: 'Базовый Стиль', value: '', exposed: false } },
-            { id: 't2', type: NodeType.BORDER, x: 0, y: 300, data: { label: 'Граница', value: '', exposed: true, exposedLabel: 'Settings Border' } },
-            { id: 't3', type: NodeType.LAYOUT, x: 250, y: 300, data: { label: 'Отступы', value: '', exposed: false } },
-            { id: 't4', type: NodeType.MERGE, x: 500, y: 150, data: { label: 'Слияние', value: '' } },
-            { id: 't5', type: NodeType.COLOR, x: -250, y: 0, data: { label: 'Белый Текст', value: '#ffffff' } },
-            { id: 't6', type: NodeType.COLOR, x: -250, y: 100, data: { label: 'Синий Фон', value: '#3b82f6' } },
-            { id: 't7', type: NodeType.NUMBER, x: -250, y: 300, data: { label: 'Толщина (5)', value: 5 } },
-            { id: 't8', type: NodeType.TOGGLE, x: -250, y: 200, data: { label: 'Авторазмер ВКЛ', value: true } },
-        ],
-        connections: [
-            { id: 'tc1', sourceNodeId: 't5', sourceSocketId: 'out-color', targetNodeId: 't1', targetSocketId: 'in-text' },
-            { id: 'tc2', sourceNodeId: 't6', sourceSocketId: 'out-color', targetNodeId: 't1', targetSocketId: 'in-bg' },
-            { id: 'tc3', sourceNodeId: 't8', sourceSocketId: 'out-bool', targetNodeId: 't1', targetSocketId: 'in-auto-size' },
-            { id: 'tc4', sourceNodeId: 't7', sourceSocketId: 'out-num', targetNodeId: 't2', targetSocketId: 'in-width' },
-            { id: 'tc6', sourceNodeId: 't1', sourceSocketId: 'out-style', targetNodeId: 't4', targetSocketId: 'in-style-a' },
-            { id: 'tc7', sourceNodeId: 't2', sourceSocketId: 'out-style', targetNodeId: 't4', targetSocketId: 'in-style-b' },
-        ]
-    }
-];
+// --- PRE-MADE SCRIPTS ---
+
+const HOVER_SCALE_SCRIPT: SavedNodeGroup = {
+    id: 'script-hover-scale',
+    name: 'Эффект: Увеличение (Hover)',
+    nodes: [
+        { id: 'n1', type: NodeType.INTERACTION_HOVER, x: 50, y: 50, data: { label: 'Hover' } },
+        { id: 'n2', type: NodeType.IF_ELSE, x: 300, y: 50, data: { label: 'Condition' } },
+        { id: 'n3', type: NodeType.NUMBER, x: 50, y: 150, data: { label: 'Scale Up', value: 1.05 } },
+        { id: 'n4', type: NodeType.NUMBER, x: 50, y: 250, data: { label: 'Normal', value: 1 } },
+        { id: 'n5', type: NodeType.TRANSFORM, x: 550, y: 50, data: { label: 'Transform' } },
+        { id: 'out', type: NodeType.OUTPUT, x: 800, y: 50, data: { label: 'Output' } }
+    ],
+    connections: [
+        { id: 'c1', sourceNodeId: 'n1', sourceSocketId: 'out-bool', targetNodeId: 'n2', targetSocketId: 'in-condition' },
+        { id: 'c2', sourceNodeId: 'n3', sourceSocketId: 'out-num', targetNodeId: 'n2', targetSocketId: 'in-true' },
+        { id: 'c3', sourceNodeId: 'n4', sourceSocketId: 'out-num', targetNodeId: 'n2', targetSocketId: 'in-false' },
+        { id: 'c4', sourceNodeId: 'n2', sourceSocketId: 'out-result', targetNodeId: 'n5', targetSocketId: 'in-scale' },
+        { id: 'c5', sourceNodeId: 'n5', sourceSocketId: 'out-style', targetNodeId: 'out', targetSocketId: 'in-style' }
+    ]
+};
+
+const CLICK_TOGGLE_SCRIPT: SavedNodeGroup = {
+    id: 'script-click-toggle',
+    name: 'Интерактив: Клик (Цвет)',
+    nodes: [
+        { id: 'n1', type: NodeType.INTERACTION_CLICK, x: 50, y: 50, data: { label: 'Click Toggle' } },
+        { id: 'n2', type: NodeType.IF_ELSE, x: 300, y: 50, data: { label: 'Condition' } },
+        { id: 'n3', type: NodeType.COLOR, x: 50, y: 150, data: { label: 'Active Color', value: '#1d4ed8' } }, // Darker Blue
+        { id: 'n4', type: NodeType.COLOR, x: 50, y: 250, data: { label: 'Default Color', value: '#1e3a8a' } }, // Dark Blue
+        { id: 'n5', type: NodeType.STYLE, x: 550, y: 50, data: { label: 'Style Bg' } },
+        { id: 'out', type: NodeType.OUTPUT, x: 800, y: 50, data: { label: 'Output' } }
+    ],
+    connections: [
+        { id: 'c1', sourceNodeId: 'n1', sourceSocketId: 'out-bool', targetNodeId: 'n2', targetSocketId: 'in-condition' },
+        { id: 'c2', sourceNodeId: 'n3', sourceSocketId: 'out-color', targetNodeId: 'n2', targetSocketId: 'in-true' },
+        { id: 'c3', sourceNodeId: 'n4', sourceSocketId: 'out-color', targetNodeId: 'n2', targetSocketId: 'in-false' },
+        { id: 'c4', sourceNodeId: 'n2', sourceSocketId: 'out-result', targetNodeId: 'n5', targetSocketId: 'in-bg' },
+        { id: 'c5', sourceNodeId: 'n5', sourceSocketId: 'out-style', targetNodeId: 'out', targetSocketId: 'in-style' }
+    ]
+};
+
+const FADE_IN_UP_SCRIPT: SavedNodeGroup = {
+    id: 'script-fade-in-up',
+    name: 'Анимация: Появление',
+    nodes: [
+        { id: 'n1', type: NodeType.ANIMATION, x: 50, y: 50, data: { label: 'Anim', value: 'slideInUp' } },
+        { id: 'n2', type: NodeType.NUMBER, x: 50, y: 150, data: { label: 'Duration', value: 0.8 } },
+        { id: 'n3', type: NodeType.NUMBER, x: 50, y: 250, data: { label: 'Delay', value: 0.2 } },
+        { id: 'out', type: NodeType.OUTPUT, x: 300, y: 50, data: { label: 'Output' } }
+    ],
+    connections: [
+        { id: 'c1', sourceNodeId: 'n1', sourceSocketId: 'out-style', targetNodeId: 'out', targetSocketId: 'in-style' },
+        { id: 'c2', sourceNodeId: 'n2', sourceSocketId: 'out-num', targetNodeId: 'n1', targetSocketId: 'in-duration' },
+        { id: 'c3', sourceNodeId: 'n3', sourceSocketId: 'out-num', targetNodeId: 'n1', targetSocketId: 'in-delay' }
+    ]
+};
+
+const DEFAULT_SAVED_GROUPS: SavedNodeGroup[] = [HOVER_SCALE_SCRIPT, CLICK_TOGGLE_SCRIPT, FADE_IN_UP_SCRIPT];
+const DEFAULT_PAGES: Page[] = [{ id: 'home', name: 'Главная' }];
 
 const App: React.FC = () => {
-  const [elements, setElements] = useState<CanvasElement[]>([]);
+  // --- STATE INITIALIZATION WITH LOCAL STORAGE ---
+  const [pages, setPages] = useState<Page[]>(() => {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+          try {
+              const parsed = JSON.parse(saved);
+              return parsed.pages || DEFAULT_PAGES;
+          } catch(e) { console.error('Failed to load pages', e); }
+      }
+      return DEFAULT_PAGES;
+  });
+
+  const [activePageId, setActivePageId] = useState<string>(() => {
+       // Ideally we could persist active page too, but default to first is fine
+       return pages[0]?.id || 'home';
+  });
+
+  const [elements, setElements] = useState<CanvasElement[]>(() => {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+          try {
+              const parsed = JSON.parse(saved);
+              let loadedElements: CanvasElement[] = parsed.elements || [];
+              
+              // Migration: Assign existing elements to the first page if they have no pageId
+              const firstPageId = parsed.pages?.[0]?.id || 'home';
+              loadedElements = loadedElements.map(el => ({
+                  ...el,
+                  pageId: el.pageId || firstPageId
+              }));
+
+              return loadedElements;
+          } catch(e) { console.error('Failed to load elements', e); }
+      }
+      return [];
+  });
+
+  const [customComponents, setCustomComponents] = useState<CustomComponentDefinition[]>(() => {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+          try {
+              const parsed = JSON.parse(saved);
+              return parsed.customComponents || [];
+          } catch(e) { console.error('Failed to load components', e); }
+      }
+      return [];
+  });
+
+  const [savedNodeGroups, setSavedNodeGroups] = useState<SavedNodeGroup[]>(() => {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+          try {
+              const parsed = JSON.parse(saved);
+              return parsed.savedNodeGroups || DEFAULT_SAVED_GROUPS;
+          } catch(e) { console.error('Failed to load scripts', e); }
+      }
+      return DEFAULT_SAVED_GROUPS;
+  });
+
+  const [canvasSize, setCanvasSize] = useState(() => {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+          try {
+              const parsed = JSON.parse(saved);
+              if (parsed.canvasSize) return parsed.canvasSize;
+          } catch(e) { console.error('Failed to load canvas size', e); }
+      }
+      return { width: CANVAS_WIDTH_DEFAULT, height: CANVAS_HEIGHT_DEFAULT };
+  });
+
   const [mode, setMode] = useState<AppMode>('SELECT');
   const [stampType, setStampType] = useState<ElementType | null>(null);
   const [stampCustomId, setStampCustomId] = useState<string | undefined>(undefined);
   
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [canvasSize, setCanvasSize] = useState({ width: CANVAS_WIDTH_DEFAULT, height: CANVAS_HEIGHT_DEFAULT });
-  
-  // Custom Component Registry & Saved Groups
-  const [customComponents, setCustomComponents] = useState<CustomComponentDefinition[]>([]);
-  const [savedNodeGroups, setSavedNodeGroups] = useState<SavedNodeGroup[]>(DEFAULT_SAVED_GROUPS);
+  const [isSaved, setIsSaved] = useState(true);
   
   // Logic Editor State
   const [showNodeEditor, setShowNodeEditor] = useState(false);
-  // editingTarget: We can edit a Master Component (from library) OR a Local Instance (detached)
-  const [editingTarget, setEditingTarget] = useState<{ type: 'MASTER' | 'LOCAL', id: string } | null>(null);
+  const [editingTarget, setEditingTarget] = useState<{ type: 'MASTER' | 'LOCAL' | 'SCRIPT' | 'NEW_SCRIPT', id: string } | null>(null);
+
+  // Main Menu State
+  const [isMainMenuOpen, setIsMainMenuOpen] = useState(false);
+  const [showAboutModal, setShowAboutModal] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const canvasMouseDownRef = useRef(false);
@@ -109,6 +197,143 @@ const App: React.FC = () => {
     initialX: 0,
     initialY: 0
   });
+
+  // Derived State: Active Elements
+  const activePageElements = elements.filter(el => el.pageId === activePageId);
+
+  // --- AUTO SAVE EFFECT ---
+  useEffect(() => {
+      const saveData = {
+          pages,
+          elements,
+          customComponents,
+          savedNodeGroups,
+          canvasSize,
+          version: 1
+      };
+      
+      try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(saveData));
+          setIsSaved(true);
+          // Briefly indicate save
+          const timeout = setTimeout(() => setIsSaved(true), 1000);
+          return () => clearTimeout(timeout);
+      } catch (e) {
+          console.error("Failed to save project", e);
+          setIsSaved(false);
+      }
+  }, [pages, elements, customComponents, savedNodeGroups, canvasSize]);
+
+  // --- PAGE OPERATIONS ---
+  const handleAddPage = () => {
+      const newPage: Page = {
+          id: uuidv4(),
+          name: `Страница ${pages.length + 1}`
+      };
+      setPages(prev => [...prev, newPage]);
+      setActivePageId(newPage.id);
+  };
+
+  const handleDeletePage = (id: string) => {
+      if (pages.length <= 1) {
+          alert("Нельзя удалить единственную страницу.");
+          return;
+      }
+      if (window.confirm("Удалить страницу и все её элементы?")) {
+          setPages(prev => prev.filter(p => p.id !== id));
+          setElements(prev => prev.filter(el => el.pageId !== id));
+          if (activePageId === id) {
+              setActivePageId(pages[0].id);
+          }
+      }
+  };
+
+  const handleRenamePage = (id: string, newName: string) => {
+      setPages(prev => prev.map(p => p.id === id ? { ...p, name: newName } : p));
+  };
+
+  // --- FILE OPERATIONS ---
+
+  const handleResetProject = () => {
+      if (window.confirm("Вы уверены? Это действие очистит весь проект.")) {
+          localStorage.removeItem(STORAGE_KEY);
+          window.location.reload();
+      }
+  };
+
+  const handleSaveProjectJSON = () => {
+      const projectData = {
+          pages,
+          elements,
+          customComponents,
+          savedNodeGroups,
+          canvasSize,
+          timestamp: Date.now(),
+          version: 1
+      };
+      const json = JSON.stringify(projectData, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `flowbuilder-project-${new Date().toISOString().slice(0,10)}.json`;
+      document.body.appendChild(a); 
+      a.click();
+      document.body.removeChild(a); 
+      URL.revokeObjectURL(url);
+      setIsMainMenuOpen(false);
+  };
+
+  const handleLoadProjectClick = () => {
+      fileInputRef.current?.click();
+      setIsMainMenuOpen(false);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+          try {
+              const json = event.target?.result as string;
+              const data = JSON.parse(json);
+              
+              if (window.confirm("Загрузка проекта заменит текущий холст. Продолжить?")) {
+                  // Fallback to empty/default if keys are missing
+                  setPages(Array.isArray(data.pages) ? data.pages : DEFAULT_PAGES);
+                  
+                  // Ensure elements have pageId
+                  const loadedElements = Array.isArray(data.elements) ? data.elements : [];
+                  const defaultPageId = data.pages?.[0]?.id || DEFAULT_PAGES[0].id;
+                  
+                  setElements(loadedElements.map((el: any) => ({
+                      ...el,
+                      pageId: el.pageId || defaultPageId
+                  })));
+
+                  setCustomComponents(Array.isArray(data.customComponents) ? data.customComponents : []);
+                  setSavedNodeGroups(Array.isArray(data.savedNodeGroups) ? data.savedNodeGroups : DEFAULT_SAVED_GROUPS);
+                  if (data.canvasSize) {
+                      setCanvasSize(data.canvasSize);
+                  } else {
+                      setCanvasSize({ width: CANVAS_WIDTH_DEFAULT, height: CANVAS_HEIGHT_DEFAULT });
+                  }
+                  
+                  // Reset UI state
+                  setActivePageId(data.pages?.[0]?.id || DEFAULT_PAGES[0].id);
+                  setSelectedId(null);
+                  setMode('SELECT');
+              }
+          } catch (err) {
+              alert("Ошибка при чтении файла проекта.");
+              console.error(err);
+          }
+      };
+      reader.readAsText(file);
+      // Reset input to allow selecting the same file again
+      e.target.value = '';
+  };
 
   // Calculate coordinates relative to the Canvas
   const getRelativeCoordinates = (clientX: number, clientY: number) => {
@@ -155,6 +380,7 @@ const App: React.FC = () => {
 
     const newElement: CanvasElement = {
       id: uuidv4(),
+      pageId: activePageId, // Assign to current page
       type,
       customComponentId: customId,
       x, 
@@ -171,7 +397,7 @@ const App: React.FC = () => {
     if (mode === 'SELECT') {
       setSelectedId(newElement.id);
     }
-  }, [mode]);
+  }, [mode, activePageId]);
 
   const handleUpdateElement = useCallback((id: string, updates: Partial<CanvasElement>) => {
     setElements(prev => prev.map(el => el.id === id ? { ...el, ...updates } : el));
@@ -198,7 +424,7 @@ const App: React.FC = () => {
 
   // Export & Preview
   const handleExport = () => {
-    const html = generateHTML(elements, canvasSize.width, canvasSize.height, customComponents);
+    const html = generateHTML(elements, pages, canvasSize.width, canvasSize.height, customComponents, savedNodeGroups);
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -206,10 +432,11 @@ const App: React.FC = () => {
     a.download = 'website.html';
     a.click();
     URL.revokeObjectURL(url);
+    setIsMainMenuOpen(false);
   };
 
   const handlePreview = () => {
-    const html = generateHTML(elements, canvasSize.width, canvasSize.height, customComponents);
+    const html = generateHTML(elements, pages, canvasSize.width, canvasSize.height, customComponents, savedNodeGroups);
     const win = window.open();
     if (win) {
       win.document.write(html);
@@ -286,6 +513,7 @@ const App: React.FC = () => {
       if (e.key === 'Escape') {
         if (menu.isOpen) setMenu(prev => ({ ...prev, isOpen: false }));
         else if (mode === 'STAMP') handleExitStamp();
+        else if (isMainMenuOpen) setIsMainMenuOpen(false);
         else if (selectedId) setSelectedId(null);
       }
       if (selectedId) {
@@ -308,7 +536,6 @@ const App: React.FC = () => {
           setElements(prev => {
             const original = prev.find(el => el.id === selectedId);
             if (!original) return prev;
-            // Deep clone needed? Yes for properties, but propOverrides are usually minimal.
             const copy: CanvasElement = { 
                 ...original, 
                 id: newId, 
@@ -324,7 +551,7 @@ const App: React.FC = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedId, mode, menu.isOpen, handleDeleteElement, handleExitStamp, showNodeEditor]);
+  }, [selectedId, mode, menu.isOpen, handleDeleteElement, handleExitStamp, showNodeEditor, isMainMenuOpen]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -339,7 +566,8 @@ const App: React.FC = () => {
 
   const handleCanvasMouseDown = useCallback(() => {
     canvasMouseDownRef.current = true;
-  }, []);
+    if (isMainMenuOpen) setIsMainMenuOpen(false);
+  }, [isMainMenuOpen]);
 
   const handleCanvasClick = useCallback((e: React.MouseEvent) => {
     if (menu.isOpen) {
@@ -354,9 +582,27 @@ const App: React.FC = () => {
     canvasMouseDownRef.current = false;
   }, [mode, stampType, stampCustomId, menu.isOpen, addElement]);
 
+  // --- DROP HANDLERS FOR NEW ELEMENTS ---
+  const handleCanvasDragOver = (e: React.DragEvent) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleCanvasDrop = (e: React.DragEvent) => {
+      e.preventDefault();
+      
+      const toolType = e.dataTransfer.getData('application/flowbuilder-tool') as ElementType;
+      const customId = e.dataTransfer.getData('application/flowbuilder-custom-id');
+
+      if (toolType && (TOOLS[toolType] || toolType === ElementType.CUSTOM)) {
+          addElement(toolType, e.clientX, e.clientY, customId || undefined);
+      }
+  };
+
   const handleElementSelect = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     canvasMouseDownRef.current = false;
+    if (isMainMenuOpen) setIsMainMenuOpen(false);
     
     if (mode === 'SELECT') {
       setSelectedId(id);
@@ -516,9 +762,21 @@ const App: React.FC = () => {
       setEditingTarget({ type: 'LOCAL', id: elementId });
       setShowNodeEditor(true);
   };
+
+  // Logic to edit a Saved Script (Node Group)
+  const handleEditNodeGroup = (id: string) => {
+      setEditingTarget({ type: 'SCRIPT', id });
+      setShowNodeEditor(true);
+  };
   
   const handleCreateNewComponent = () => {
       setEditingTarget(null);
+      setShowNodeEditor(true);
+  };
+
+  // Handler for creating a new independent Script (for HierarchyPanel)
+  const handleCreateNewScript = () => {
+      setEditingTarget({ type: 'NEW_SCRIPT', id: uuidv4() });
       setShowNodeEditor(true);
   };
 
@@ -535,8 +793,17 @@ const App: React.FC = () => {
               }
               return el;
           }));
+      } else if (editingTarget?.type === 'SCRIPT' || editingTarget?.type === 'NEW_SCRIPT') {
+          // Saving an existing Script asset OR creating a new one
+          setSavedNodeGroups(prev => {
+             const exists = prev.some(g => g.id === component.id);
+             if (exists) {
+                 return prev.map(g => g.id === component.id ? { ...component, id: g.id } : g);
+             }
+             return [...prev, component];
+          });
       } else {
-          // Saving to global library
+          // Saving to global library (Visual Component)
           setCustomComponents(prev => {
               const exists = prev.some(c => c.id === component.id);
               if (exists) {
@@ -550,7 +817,14 @@ const App: React.FC = () => {
   };
   
   const handleSaveNodeGroup = (group: SavedNodeGroup) => {
-      setSavedNodeGroups(prev => [...prev, group]);
+      // Check if updating existing or adding new
+      setSavedNodeGroups(prev => {
+          const exists = prev.some(g => g.id === group.id);
+          if (exists) {
+              return prev.map(g => g.id === group.id ? group : g);
+          }
+          return [...prev, group];
+      });
   };
 
   const handleRenameNodeGroup = (id: string, newName: string) => {
@@ -572,6 +846,8 @@ const App: React.FC = () => {
 
   const selectedElement = elements.find(el => el.id === selectedId);
 
+  // Updated recursive renderer to only look at elements on the active page (for root calls)
+  // Recursion handles children regardless of pageId, assuming parent hierarchy is consistent.
   const renderElementRecursive = (elementId: string) => {
     const el = elements.find(e => e.id === elementId);
     if (!el) return null;
@@ -588,6 +864,7 @@ const App: React.FC = () => {
         onSelect={handleElementSelect}
         onResizeStart={handleResizeStart}
         customDefinitions={customComponents}
+        scripts={savedNodeGroups} // Pass Scripts here so they can be executed
       >
         {children}
       </RenderedElement>
@@ -610,6 +887,18 @@ const App: React.FC = () => {
                    nodeEditorInitialData = { ...master, id: uuidv4(), name: `Local ${master.name}` };
                }
           }
+      } else if (editingTarget.type === 'SCRIPT') {
+          const script = savedNodeGroups.find(g => g.id === editingTarget.id);
+          if (script) {
+              nodeEditorInitialData = script;
+          }
+      } else if (editingTarget.type === 'NEW_SCRIPT') {
+          nodeEditorInitialData = {
+              id: editingTarget.id,
+              name: 'Новый Скрипт',
+              nodes: [{ id: 'root', type: NodeType.OUTPUT, x: 500, y: 300, data: { label: 'Output' } }],
+              connections: []
+          };
       }
   }
 
@@ -620,6 +909,7 @@ const App: React.FC = () => {
       {showNodeEditor && (
           <NodeEditor 
             savedGroups={savedNodeGroups}
+            pages={pages} // Pass pages to NodeEditor for Navigation Node
             initialData={nodeEditorInitialData}
             onSaveGroup={handleSaveNodeGroup}
             onRenameGroup={handleRenameNodeGroup}
@@ -631,16 +921,60 @@ const App: React.FC = () => {
             }}
           />
       )}
+
+      {/* About Modal */}
+      {showAboutModal && (
+          <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center animate-in fade-in">
+              <div className="bg-white rounded-lg shadow-2xl w-96 p-6 relative">
+                  <button 
+                     onClick={() => setShowAboutModal(false)}
+                     className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
+                  >
+                      <X size={20} />
+                  </button>
+                  <div className="flex flex-col items-center text-center">
+                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4 text-blue-600">
+                          <Workflow size={24} />
+                      </div>
+                      <h2 className="text-xl font-bold text-gray-800 mb-2">FlowBuilder MVP</h2>
+                      <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+                          Визуальный конструктор сайтов с возможностью создания логики через нодовый редактор.
+                          Поддерживает создание компонентов, анимации, скрипты взаимодействия и экспорт в чистый HTML.
+                      </p>
+                      <div className="w-full bg-gray-50 rounded p-3 text-xs text-gray-500 border border-gray-100">
+                          <div className="flex justify-between mb-1">
+                              <span>Версия:</span>
+                              <span className="font-mono text-gray-700">1.1.0 (Multi-page)</span>
+                          </div>
+                          <div className="flex justify-between">
+                              <span>Сборка:</span>
+                              <span className="font-mono text-gray-700">React + Tailwind</span>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
       
       {!showNodeEditor && (
         <HierarchyPanel 
-          elements={elements}
+          elements={activePageElements} // ONLY show active page elements in tree
           selectedId={selectedId}
           customComponents={customComponents}
+          scripts={savedNodeGroups}
+          pages={pages}
+          activePageId={activePageId}
           onSelect={setSelectedId}
           onReparent={handleReparent}
           onEditComponent={handleEditCustomComponent}
+          onEditScript={handleEditNodeGroup}
+          onDeleteScript={handleDeleteNodeGroup}
+          onCreateScript={handleCreateNewScript} 
           onAddComponent={handleAddComponentFromSidebar}
+          onAddPage={handleAddPage}
+          onDeletePage={handleDeletePage}
+          onRenamePage={handleRenamePage}
+          onSelectPage={setActivePageId}
         />
       )}
 
@@ -650,12 +984,77 @@ const App: React.FC = () => {
         onContextMenu={handleContextMenu}
       >
         {/* Top Toolbar */}
-        <div className="h-12 bg-white border-b border-gray-200 flex items-center justify-between px-4 shrink-0 z-40">
-           <div className="flex items-center text-sm font-semibold text-gray-700">
-              FlowBuilder
+        <div className="h-12 bg-white border-b border-gray-200 flex items-center justify-between px-4 shrink-0 z-40 relative">
+           <div className="flex items-center space-x-4">
+              {/* Hamburger Menu */}
+              <div className="relative">
+                  <button 
+                    onClick={() => setIsMainMenuOpen(!isMainMenuOpen)}
+                    className="p-2 hover:bg-gray-100 rounded-md transition-colors text-gray-700"
+                  >
+                      <Menu size={20} />
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {isMainMenuOpen && (
+                      <div className="absolute top-12 left-0 w-64 bg-white border border-gray-200 rounded-lg shadow-xl py-2 flex flex-col z-50 animate-in fade-in slide-in-from-top-2">
+                          <div className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">Проект</div>
+                          
+                          <button onClick={handleSaveProjectJSON} className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors">
+                              <FileJson size={16} className="mr-3 text-gray-400" />
+                              Сохранить (.json)
+                          </button>
+                          
+                          <button onClick={handleLoadProjectClick} className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors">
+                              <Upload size={16} className="mr-3 text-gray-400" />
+                              Загрузить (.json)
+                          </button>
+                          
+                          <div className="my-1 border-t border-gray-100"></div>
+                          
+                          <button onClick={handleExport} className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors">
+                              <Download size={16} className="mr-3 text-gray-400" />
+                              Экспорт в HTML
+                          </button>
+
+                          <div className="my-1 border-t border-gray-100"></div>
+
+                          <button onClick={handleResetProject} className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                              <RotateCcw size={16} className="mr-3 text-red-400" />
+                              Сбросить всё
+                          </button>
+
+                          <div className="my-1 border-t border-gray-100"></div>
+
+                          <button onClick={() => { setShowAboutModal(true); setIsMainMenuOpen(false); }} className="flex items-center px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                              <Info size={16} className="mr-3 text-gray-400" />
+                              О проекте
+                          </button>
+                      </div>
+                  )}
+                  {/* File input moved OUTSIDE the conditional menu rendering to ensure it's always available for events */}
+                  <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      className="hidden" 
+                      accept=".json"
+                      onChange={handleFileChange}
+                  />
+              </div>
+
+              <div className="flex flex-col leading-none">
+                  <span className="text-sm font-semibold text-gray-700 flex items-center select-none">
+                      FlowBuilder
+                      {isSaved && <Check size={12} className="ml-2 text-green-500 opacity-50" title="Сохранено" />}
+                  </span>
+                  <span className="text-[10px] text-gray-500">
+                      Страница: <span className="font-medium text-gray-700">{pages.find(p => p.id === activePageId)?.name}</span>
+                  </span>
+              </div>
            </div>
+
            <div className="flex items-center space-x-2">
-             <div className="flex items-center mr-4 text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded">
+             <div className="flex items-center mr-4 text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded select-none">
                <span className="font-mono">{Math.round(canvasSize.width)} x {Math.round(canvasSize.height)}</span>
              </div>
              
@@ -665,22 +1064,15 @@ const App: React.FC = () => {
                 className="flex items-center px-3 py-1.5 text-xs font-medium text-white bg-purple-600 rounded hover:bg-purple-700 transition-colors shadow-sm mr-2"
              >
                 <Workflow size={14} className="mr-1.5" />
-                Создать Ноду
+                Нода
              </button>
 
              <button 
                onClick={handlePreview}
-               className="flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+               className="flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm"
              >
-               <Play size={14} className="mr-1.5" />
-               Предпросмотр
-             </button>
-             <button 
-               onClick={handleExport}
-               className="flex items-center px-3 py-1.5 text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors shadow-sm"
-             >
-               <Download size={14} className="mr-1.5" />
-               Экспорт
+               <Play size={14} className="mr-1.5 text-blue-600" />
+               Запуск
              </button>
            </div>
         </div>
@@ -700,9 +1092,21 @@ const App: React.FC = () => {
               minHeight: canvasSize.height // ensure it keeps height
             }}
             onClick={handleCanvasClick}
+            onDragOver={handleCanvasDragOver}
+            onDrop={handleCanvasDrop}
           >
-            {/* Render Root Elements */}
-            {elements.filter(el => !el.parentId).map(el => renderElementRecursive(el.id))}
+            {/* Render Root Elements for CURRENT PAGE */}
+            {activePageElements.length === 0 && (
+                <div className="absolute inset-0 flex items-center justify-center text-gray-300 pointer-events-none select-none">
+                    <div className="text-center">
+                        <Box size={48} className="mx-auto mb-2 opacity-20" />
+                        <p className="text-sm">Холст пуст</p>
+                        <p className="text-xs opacity-70">Перетащите элементы слева</p>
+                    </div>
+                </div>
+            )}
+            
+            {activePageElements.filter(el => !el.parentId).map(el => renderElementRecursive(el.id))}
             
             {/* Bottom Height Resize Handle */}
             <div 
@@ -736,7 +1140,9 @@ const App: React.FC = () => {
             onClose={() => setSelectedId(null)}
             onDelete={handleDeleteElement}
             onEditGraph={handleEditElementGraph}
+            onEditScript={handleEditNodeGroup}
             customDefinitions={customComponents}
+            availableScripts={savedNodeGroups} // Pass SavedNodeGroups here
             onRenameComponent={handleRenameComponent}
           />
         )}
@@ -754,7 +1160,7 @@ const App: React.FC = () => {
         <StatusBar 
           mode={mode}
           stampType={stampType}
-          elementCount={elements.length}
+          elementCount={activePageElements.length}
           onExitStampMode={handleExitStamp}
         />
       </div>

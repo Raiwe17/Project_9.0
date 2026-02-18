@@ -1,8 +1,9 @@
+
 import React, { useMemo } from 'react';
-import { ElementType, CanvasElement, ResizeHandle, CustomComponentDefinition } from '../types';
+import { ElementType, CanvasElement, ResizeHandle, CustomComponentDefinition, SavedNodeGroup } from '../types';
 import { TOOLS } from '../constants';
 import { Play, Box, Unlink } from 'lucide-react';
-import { evaluateNodeGraph } from '../utils/evaluate';
+import { evaluateNodeGraph, RuntimeContext } from '../utils/evaluate';
 
 interface RenderedElementProps {
   element: CanvasElement;
@@ -10,7 +11,8 @@ interface RenderedElementProps {
   onSelect: (id: string, e: React.MouseEvent) => void;
   onResizeStart: (id: string, handle: ResizeHandle, e: React.MouseEvent) => void;
   children?: React.ReactNode; 
-  customDefinitions?: CustomComponentDefinition[]; // Pass definitions to render custom elements
+  customDefinitions?: CustomComponentDefinition[]; 
+  scripts?: SavedNodeGroup[]; 
 }
 
 export const RenderedElement: React.FC<RenderedElementProps> = ({ 
@@ -19,7 +21,8 @@ export const RenderedElement: React.FC<RenderedElementProps> = ({
   onSelect,
   onResizeStart,
   children,
-  customDefinitions = []
+  customDefinitions = [],
+  scripts = []
 }) => {
   const tool = TOOLS[element.type] || { icon: Box };
   const commonClasses = "absolute transition-none select-none";
@@ -28,48 +31,77 @@ export const RenderedElement: React.FC<RenderedElementProps> = ({
     ? "ring-2 ring-blue-500 z-30" 
     : "hover:ring-1 hover:ring-blue-300 z-10";
 
-  // 1. Evaluate Custom Component Logic First (if applicable)
-  const compiledCustomData = useMemo(() => {
-      if (element.type !== ElementType.CUSTOM) return null;
-      
-      let def: CustomComponentDefinition | undefined | null;
+  // --- STATIC EDITOR STATE ---
+  // In the editor, we force a static state (time=0, no hover/click) 
+  // so scripts don't interfere with editing.
+  
+  // 1. Evaluate Logic (Static Preview)
+  const evaluatedData = useMemo(() => {
+      let mergedStyle = {};
+      let mergedContent = element.content;
 
-      // Logic: Prefer Local Graph (Detached) -> Then Master Graph
-      if (element.isDetached && element.customNodeGroup) {
-          def = element.customNodeGroup;
-      } else if (element.customComponentId) {
-          def = customDefinitions.find(d => d.id === element.customComponentId);
+      // Static Context for Editor
+      const runtimeContext: RuntimeContext = {
+          isHovered: false,
+          isClicked: false,
+          time: 0
+      };
+
+      // A. Evaluate Base Custom Component
+      if (element.type === ElementType.CUSTOM) {
+          let def: CustomComponentDefinition | undefined | null;
+          if (element.isDetached && element.customNodeGroup) {
+              def = element.customNodeGroup;
+          } else if (element.customComponentId) {
+              def = customDefinitions.find(d => d.id === element.customComponentId);
+          }
+
+          if (def) {
+              const res = evaluateNodeGraph(def, element.propOverrides, runtimeContext);
+              mergedStyle = { ...mergedStyle, ...res.style };
+              if (res.content !== undefined) mergedContent = res.content;
+          }
       }
 
-      if (!def) return null;
+      // B. Evaluate Attached Scripts (Static)
+      if (element.scripts && element.scripts.length > 0) {
+          element.scripts.forEach(scriptId => {
+              const scriptDef = scripts.find(d => d.id === scriptId);
+              if (scriptDef) {
+                  const res = evaluateNodeGraph(scriptDef, element.propOverrides, runtimeContext);
+                  mergedStyle = { ...mergedStyle, ...res.style };
+                  if (res.content) mergedContent = res.content;
+              }
+          });
+      }
 
-      return evaluateNodeGraph(def, element.propOverrides);
+      return { style: mergedStyle, content: mergedContent };
   }, [
       element.type, 
       element.customComponentId, 
       element.isDetached, 
       element.customNodeGroup, 
-      element.propOverrides, // Ensure reactivity when overrides change
-      customDefinitions
+      element.propOverrides, 
+      element.scripts,
+      customDefinitions,
+      scripts
   ]);
 
   // 2. Merge Styles
-  // Priority: Graph Style > Instance Style (for visual properties usually defined by graph)
-  // But strictly speaking, we merge them.
   const instanceStyle = element.style || {};
-  const graphStyle = compiledCustomData?.style || {};
+  const computedStyle = evaluatedData.style || {};
   
   const effectiveStyle = {
       ...instanceStyle,
-      ...graphStyle, // Graph style overrides instance defaults for properties it controls
+      ...computedStyle, 
   };
 
-  // 3. Auto Font Size Logic (Applied to the merged effective style)
+  // 3. Auto Font Size Logic
   let fontSizeString = effectiveStyle.fontSize ? `${effectiveStyle.fontSize}px` : undefined;
   
   if (effectiveStyle.autoFontSize) {
     const heightConstraint = Math.round(element.height * 0.6);
-    const contentLen = (compiledCustomData?.content || element.content || '').length;
+    const contentLen = (evaluatedData.content || '').length;
     const charCount = Math.max(1, contentLen || 1);
     const widthConstraint = Math.round((element.width / charCount) * 1.8);
     const calculatedSize = Math.max(10, Math.min(heightConstraint, widthConstraint));
@@ -83,22 +115,31 @@ export const RenderedElement: React.FC<RenderedElementProps> = ({
     color: effectiveStyle.color,
     borderRadius: effectiveStyle.borderRadius ? `${effectiveStyle.borderRadius}px` : undefined,
     fontSize: fontSizeString,
-    lineHeight: effectiveStyle.autoFontSize ? 1 : 1.4,
+    lineHeight: effectiveStyle.autoFontSize ? 1 : (effectiveStyle.lineHeight ?? 1.4),
+    letterSpacing: effectiveStyle.letterSpacing,
     whiteSpace: effectiveStyle.autoFontSize ? 'nowrap' : undefined,
     textAlign: effectiveStyle.textAlign as any,
     fontWeight: effectiveStyle.fontWeight,
     fontFamily: effectiveStyle.fontFamily,
     borderWidth: effectiveStyle.borderWidth ? `${effectiveStyle.borderWidth}px` : undefined,
+    borderBottomWidth: effectiveStyle.borderBottomWidth ? `${effectiveStyle.borderBottomWidth}px` : undefined,
+    borderTopWidth: effectiveStyle.borderTopWidth ? `${effectiveStyle.borderTopWidth}px` : undefined,
     borderColor: effectiveStyle.borderColor,
-    borderStyle: effectiveStyle.borderWidth ? 'solid' : undefined,
+    borderStyle: (effectiveStyle.borderWidth || effectiveStyle.borderBottomWidth || effectiveStyle.borderTopWidth) ? 'solid' : undefined,
     padding: effectiveStyle.padding ? `${effectiveStyle.padding}px` : undefined,
+    marginTop: effectiveStyle.marginTop ? `${effectiveStyle.marginTop}px` : undefined,
+    marginLeft: effectiveStyle.marginLeft ? `${effectiveStyle.marginLeft}px` : undefined,
     opacity: effectiveStyle.opacity,
     textOverflow: effectiveStyle.autoFontSize ? 'ellipsis' : undefined,
     display: effectiveStyle.display,
+    flexDirection: effectiveStyle.flexDirection as any,
     alignItems: effectiveStyle.alignItems,
     justifyContent: effectiveStyle.justifyContent,
+    gap: effectiveStyle.gap ? `${effectiveStyle.gap}px` : undefined,
     boxShadow: effectiveStyle.boxShadow,
     transform: effectiveStyle.transform,
+    animation: effectiveStyle.animation, // CSS Animation string
+    transition: effectiveStyle.transition, // CSS Transition string
   };
 
   const wrapperStyle: React.CSSProperties = {
@@ -124,24 +165,21 @@ export const RenderedElement: React.FC<RenderedElementProps> = ({
      return t;
   };
 
-  const renderContent = () => {
-    const contentToRender = compiledCustomData?.content !== undefined ? compiledCustomData.content : element.content;
+  const contentToRender = evaluatedData.content !== undefined ? evaluatedData.content : element.content;
 
+  const renderContent = () => {
     switch (element.type) {
       case ElementType.CUSTOM:
-          if (!compiledCustomData) return <div className="w-full h-full bg-red-100/50 border border-red-300 flex items-center justify-center text-xs text-red-500 p-2 text-center">Empty or Broken Component Link</div>;
           return (
               <div 
                 className="w-full h-full overflow-hidden relative" 
                 style={finalContentStyle}
               >
-                  {/* Detached Indicator */}
                   {element.isDetached && (
                       <div className="absolute top-1 right-1 z-50 bg-orange-500/90 text-white p-1 rounded-full shadow-sm backdrop-blur-sm pointer-events-none" title="Отключено автообновление">
                           <Unlink size={10} />
                       </div>
                   )}
-
                   {effectiveStyle.autoFontSize ? (
                        <span className="truncate max-w-full block">{contentToRender}</span>
                   ) : (
@@ -188,7 +226,7 @@ export const RenderedElement: React.FC<RenderedElementProps> = ({
       case ElementType.CONTAINER:
         return (
           <div 
-            className={`w-full h-full ${element.type === ElementType.CONTAINER && !effectiveStyle.borderWidth ? 'border-2 border-dashed border-gray-300' : ''}`}
+            className={`w-full h-full ${element.type === ElementType.CONTAINER && !effectiveStyle.borderWidth && !effectiveStyle.borderBottomWidth && !effectiveStyle.borderTopWidth ? 'border-2 border-dashed border-gray-300' : ''}`}
             style={finalContentStyle}
           >
              {!children && !effectiveStyle.backgroundColor && (
@@ -287,7 +325,6 @@ export const RenderedElement: React.FC<RenderedElementProps> = ({
       className={`${commonClasses} ${selectionClass}`} 
       style={wrapperStyle}
       onMouseDown={(e) => onSelect(element.id, e)}
-      onClick={(e) => e.stopPropagation()}
     >
       {renderContent()}
       {renderHandles()}

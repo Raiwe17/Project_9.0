@@ -1,6 +1,6 @@
-import React from 'react';
-import { CanvasElement, ElementType, ElementStyle, CustomComponentDefinition, NodeType } from '../types';
-import { X, Trash2, AlignLeft, Move, Scaling, Palette, Type, AlignCenter, AlignRight, Bold, BoxSelect, Maximize, Settings2, Tag, GitFork, Link, Workflow, Pencil, Unlink, RefreshCw } from 'lucide-react';
+import React, { useState } from 'react';
+import { CanvasElement, ElementType, ElementStyle, CustomComponentDefinition, NodeType, SavedNodeGroup } from '../types';
+import { X, Trash2, AlignLeft, Move, Scaling, Palette, Type, AlignCenter, AlignRight, Bold, BoxSelect, Maximize, Settings2, Tag, GitFork, Link, Workflow, Pencil, Unlink, RefreshCw, Scroll, Plus } from 'lucide-react';
 
 interface PropertiesPanelProps {
   element: CanvasElement;
@@ -8,7 +8,9 @@ interface PropertiesPanelProps {
   onClose: () => void;
   onDelete: (id: string) => void;
   onEditGraph: (elementId: string) => void;
+  onEditScript: (scriptId: string) => void; // New prop for editing scripts
   customDefinitions?: CustomComponentDefinition[];
+  availableScripts?: SavedNodeGroup[]; 
   onRenameComponent?: (id: string, name: string) => void;
 }
 
@@ -18,9 +20,13 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   onClose,
   onDelete,
   onEditGraph,
+  onEditScript,
   customDefinitions = [],
+  availableScripts = [], 
   onRenameComponent
 }) => {
+  const [isAddingScript, setIsAddingScript] = useState(false);
+
   const handleChange = (field: keyof CanvasElement, value: string | number) => {
     onUpdate(element.id, { [field]: value });
   };
@@ -32,6 +38,19 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         [field]: value
       }
     });
+  };
+
+  const handleAddScript = (scriptId: string) => {
+      const currentScripts = element.scripts || [];
+      if (!currentScripts.includes(scriptId)) {
+          onUpdate(element.id, { scripts: [...currentScripts, scriptId] });
+      }
+      setIsAddingScript(false);
+  };
+
+  const handleRemoveScript = (scriptId: string) => {
+      const currentScripts = element.scripts || [];
+      onUpdate(element.id, { scripts: currentScripts.filter(id => id !== scriptId) });
   };
 
   // Override Handler for Custom Component Properties
@@ -50,7 +69,6 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               nodes: updatedNodes
           };
 
-          // Remove override if exists to keep state clean as the value is now baked into the local graph
           const currentOverrides = { ...(element.propOverrides || {}) };
           delete currentOverrides[nodeId];
 
@@ -74,8 +92,6 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
     const isCurrentlyDetached = element.isDetached === true;
 
     if (!isCurrentlyDetached) {
-        // Action: DETACH (Sync -> Local)
-        // Creates a deep copy of the master definition to serve as a local detached instance
         const def = customDefinitions.find(d => d.id === element.customComponentId);
         if (def) {
             const clonedDef = JSON.parse(JSON.stringify(def));
@@ -84,7 +100,6 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
             const currentOverrides = element.propOverrides || {};
             
-            // Apply existing overrides to the cloned local definition so the visual state doesn't jump
             if (clonedDef.nodes && Object.keys(currentOverrides).length > 0) {
                 clonedDef.nodes = clonedDef.nodes.map((node: any) => {
                     if (currentOverrides[node.id] !== undefined) {
@@ -103,14 +118,10 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
             onUpdate(element.id, {
                 isDetached: true,
                 customNodeGroup: clonedDef,
-                propOverrides: {} // Clear overrides as they are now baked into the local graph
+                propOverrides: {}
             });
         }
     } else {
-        // Action: ATTACH (Local -> Sync)
-        // Re-binds to the master component. Structural changes in local copy will be lost,
-        // but we try to preserve property values as overrides.
-        
         const masterDef = customDefinitions.find(d => d.id === element.customComponentId);
         const localDef = element.customNodeGroup;
         const newOverrides: Record<string, any> = {};
@@ -125,7 +136,6 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                     const localValue = lNode.data.value;
                     const masterValue = mNode.data?.value;
                     
-                    // If local value differs from master default, save it as an override
                     if (localValue !== undefined && localValue !== masterValue) {
                         newOverrides[mNode.id] = localValue;
                     }
@@ -135,7 +145,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
         onUpdate(element.id, {
             isDetached: false,
-            customNodeGroup: null, // Clear local definition
+            customNodeGroup: null, 
             propOverrides: newOverrides   
         });
     }
@@ -154,14 +164,14 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
     ElementType.BUTTON, 
     ElementType.HEADING, 
     ElementType.PARAGRAPH, 
-    ElementType.INPUT,
+    ElementType.INPUT, 
     ElementType.BADGE,
     ElementType.CUSTOM
   ].includes(element.type);
 
   const showAppearance = true;
 
-  // CUSTOM COMPONENT PROPERTIES GENERATOR
+  // Custom Component Properties Logic
   const exposedProperties = React.useMemo(() => {
       if (element.type !== ElementType.CUSTOM) return [];
       
@@ -215,13 +225,98 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
            />
         </div>
 
-        {/* CUSTOM COMPONENT SPECIFIC CONTROLS */}
+        {/* SCRIPTS (COMPONENTS) SECTION */}
+        <div className="space-y-3 bg-gray-800/30 p-3 rounded border border-gray-700">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center text-xs text-blue-400 uppercase tracking-wider font-semibold">
+                    <Scroll size={12} className="mr-1" />
+                    Скрипты
+                </div>
+                {!isAddingScript && (
+                    <button 
+                        onClick={() => setIsAddingScript(true)}
+                        className="text-[10px] bg-blue-600 hover:bg-blue-500 text-white px-2 py-0.5 rounded flex items-center transition-colors"
+                    >
+                        <Plus size={10} className="mr-1" /> Добавить
+                    </button>
+                )}
+            </div>
+
+            {/* Attached Scripts List */}
+            <div className="space-y-2">
+                {(element.scripts || []).map(scriptId => {
+                    const scriptDef = availableScripts.find(d => d.id === scriptId); 
+                    return (
+                        <div key={scriptId} className="bg-gray-800 border border-gray-600 rounded p-2 flex flex-col space-y-2 group">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-medium text-gray-200 truncate flex-1">
+                                    {scriptDef?.name || 'Неизвестный скрипт'}
+                                </span>
+                                <button 
+                                    onClick={() => handleRemoveScript(scriptId)}
+                                    className="text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    title="Открепить"
+                                >
+                                    <X size={12} />
+                                </button>
+                            </div>
+                            <div className="flex space-x-1">
+                                <button 
+                                    onClick={() => onEditScript(scriptId)} 
+                                    className="flex-1 bg-gray-700 hover:bg-gray-600 text-[10px] text-gray-300 py-1 rounded transition-colors flex items-center justify-center"
+                                >
+                                    <Settings2 size={10} className="mr-1" />
+                                    Редактировать
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })}
+                
+                {(!element.scripts || element.scripts.length === 0) && !isAddingScript && (
+                    <div className="text-[10px] text-gray-500 text-center py-2 italic">
+                        Нет прикрепленных скриптов
+                    </div>
+                )}
+            </div>
+
+            {/* Add Script Dropdown */}
+            {isAddingScript && (
+                <div className="mt-2 animate-in fade-in zoom-in-95">
+                    <select 
+                        className="w-full bg-gray-900 border border-blue-500 text-xs text-white p-2 rounded mb-2 focus:outline-none"
+                        onChange={(e) => handleAddScript(e.target.value)}
+                        autoFocus
+                        defaultValue=""
+                    >
+                        <option value="" disabled>Выберите скрипт...</option>
+                        {availableScripts.map(def => ( 
+                            <option 
+                                key={def.id} 
+                                value={def.id}
+                                disabled={(element.scripts || []).includes(def.id)}
+                            >
+                                {def.name}
+                            </option>
+                        ))}
+                    </select>
+                    <button 
+                        onClick={() => setIsAddingScript(false)}
+                        className="w-full text-[10px] text-gray-400 hover:text-white"
+                    >
+                        Отмена
+                    </button>
+                </div>
+            )}
+        </div>
+
+        {/* CUSTOM PROPERTIES SECTION (For Type=CUSTOM elements) */}
         {element.type === ElementType.CUSTOM && (
             <div className="bg-indigo-900/20 border border-indigo-500/30 rounded p-3 space-y-3">
                  <div className="flex items-center justify-between mb-2">
                      <div className="flex items-center text-xs font-semibold text-indigo-300">
                         <Workflow size={12} className="mr-1" />
-                        Логика
+                        Custom Logic
                      </div>
                      <span className={`text-[9px] px-1.5 py-0.5 rounded border flex items-center ${element.isDetached ? 'border-orange-500 text-orange-300 bg-orange-900/20' : 'border-blue-500 text-blue-300 bg-blue-900/20'}`}>
                          {element.isDetached ? <Unlink size={10} className="mr-1"/> : <Link size={10} className="mr-1"/>}
@@ -271,24 +366,15 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                      <Settings2 size={12} className="mr-2" />
                      {element.isDetached ? 'Редактировать локальный граф' : 'Редактировать мастер-граф'}
                  </button>
-                 
-                 {element.isDetached && (
-                     <div className="text-[10px] text-orange-300 bg-orange-900/10 p-2 rounded border border-orange-500/20 flex items-start leading-tight">
-                         <GitFork size={12} className="mr-2 mt-0.5 shrink-0" />
-                         <div>
-                             Этот элемент отвязан. Изменения в библиотеке <b>не затронут</b> его.
-                         </div>
-                     </div>
-                 )}
             </div>
         )}
 
-        {/* CUSTOM PROPERTIES SECTION */}
+        {/* CUSTOM EXPOSED PROPERTIES */}
         {exposedProperties.length > 0 && (
             <div className="space-y-3 bg-gray-800/50 p-3 rounded border border-gray-700">
                 <div className="flex items-center text-xs text-blue-400 uppercase tracking-wider font-semibold">
                   <Settings2 size={12} className="mr-1" />
-                  Параметры компонента
+                  Параметры
                 </div>
                 {exposedProperties.map(prop => (
                     <div key={prop.id} className="space-y-1">
