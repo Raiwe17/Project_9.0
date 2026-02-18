@@ -1,6 +1,8 @@
+
 import React, { useState } from 'react';
 import { CanvasElement, ElementType, ElementStyle, CustomComponentDefinition, NodeType, SavedNodeGroup } from '../types';
-import { X, Trash2, AlignLeft, Move, Scaling, Palette, Type, AlignCenter, AlignRight, Bold, BoxSelect, Maximize, Settings2, Tag, GitFork, Link, Workflow, Pencil, Unlink, RefreshCw, Scroll, Plus } from 'lucide-react';
+import { X, Trash2, AlignLeft, Move, Scaling, Palette, Type, AlignCenter, AlignRight, Bold, BoxSelect, Maximize, Settings2, Tag, GitFork, Link, Workflow, Pencil, Unlink, RefreshCw, Scroll, Plus, Image as ImageIcon, MonitorPlay, Film } from 'lucide-react';
+import { GOOGLE_FONTS } from '../constants';
 
 interface PropertiesPanelProps {
   element: CanvasElement;
@@ -27,8 +29,15 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 }) => {
   const [isAddingScript, setIsAddingScript] = useState(false);
 
-  const handleChange = (field: keyof CanvasElement, value: string | number) => {
+  const handleChange = (field: keyof CanvasElement, value: any) => {
     onUpdate(element.id, { [field]: value });
+  };
+
+  const handleVideoOptionChange = (key: keyof NonNullable<CanvasElement['videoOptions']>, value: boolean) => {
+      const current = element.videoOptions || {};
+      onUpdate(element.id, {
+          videoOptions: { ...current, [key]: value }
+      });
   };
 
   const handleStyleChange = (field: keyof ElementStyle, value: string | number | boolean) => {
@@ -169,6 +178,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
     ElementType.CUSTOM
   ].includes(element.type);
 
+  const isMedia = [ElementType.IMAGE_PLACEHOLDER, ElementType.VIDEO_PLACEHOLDER, ElementType.AVATAR].includes(element.type);
   const showAppearance = true;
 
   // Custom Component Properties Logic
@@ -224,6 +234,77 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 className="w-full bg-gray-800 text-sm text-gray-200 p-2 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
            />
         </div>
+
+        {/* MEDIA SETTINGS (Images/Video) */}
+        {isMedia && (
+            <div className="space-y-3 bg-gray-800/30 p-3 rounded border border-gray-700">
+                <div className="flex items-center text-xs text-blue-400 uppercase tracking-wider font-semibold">
+                    {element.type === ElementType.VIDEO_PLACEHOLDER ? <Film size={12} className="mr-1" /> : <ImageIcon size={12} className="mr-1" />}
+                    Медиа
+                </div>
+                
+                <div className="space-y-1">
+                    <label className="text-[10px] text-gray-400 font-medium">Ссылка (URL)</label>
+                    <input
+                        type="text"
+                        value={element.src || ''}
+                        onChange={(e) => handleChange('src', e.target.value)}
+                        placeholder="https://example.com/image.jpg"
+                        className="w-full bg-gray-900 text-xs text-gray-200 p-2 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
+                    />
+                    <div className="text-[9px] text-gray-500">
+                        {element.type === ElementType.VIDEO_PLACEHOLDER ? 'MP4, WebM или ссылка YouTube' : 'Прямая ссылка на изображение'}
+                    </div>
+                </div>
+
+                {element.type !== ElementType.VIDEO_PLACEHOLDER && (
+                    <div className="space-y-1">
+                        <label className="text-[10px] text-gray-400 font-medium">Alt Текст</label>
+                        <input
+                            type="text"
+                            value={element.alt || ''}
+                            onChange={(e) => handleChange('alt', e.target.value)}
+                            className="w-full bg-gray-900 text-xs text-gray-200 p-2 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
+                        />
+                    </div>
+                )}
+
+                <div className="space-y-1">
+                    <label className="text-[10px] text-gray-400 font-medium">Заполнение (Object Fit)</label>
+                    <select
+                        value={element.style?.objectFit || 'cover'}
+                        onChange={(e) => handleStyleChange('objectFit', e.target.value)}
+                        className="w-full bg-gray-900 text-xs text-gray-200 p-2 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
+                    >
+                        <option value="cover">Cover (Обрезать)</option>
+                        <option value="contain">Contain (Вписать)</option>
+                        <option value="fill">Fill (Растянуть)</option>
+                    </select>
+                </div>
+                
+                {/* Video Options */}
+                {element.type === ElementType.VIDEO_PLACEHOLDER && (
+                    <div className="pt-2 border-t border-gray-700 grid grid-cols-2 gap-2">
+                         <label className="flex items-center space-x-2 cursor-pointer">
+                            <input type="checkbox" checked={element.videoOptions?.controls ?? true} onChange={(e) => handleVideoOptionChange('controls', e.target.checked)} className="rounded bg-gray-700 border-gray-600 text-blue-500"/>
+                            <span className="text-[10px] text-gray-300">Контролы</span>
+                        </label>
+                         <label className="flex items-center space-x-2 cursor-pointer">
+                            <input type="checkbox" checked={element.videoOptions?.autoplay || false} onChange={(e) => handleVideoOptionChange('autoplay', e.target.checked)} className="rounded bg-gray-700 border-gray-600 text-blue-500"/>
+                            <span className="text-[10px] text-gray-300">Автоплей</span>
+                        </label>
+                         <label className="flex items-center space-x-2 cursor-pointer">
+                            <input type="checkbox" checked={element.videoOptions?.loop || false} onChange={(e) => handleVideoOptionChange('loop', e.target.checked)} className="rounded bg-gray-700 border-gray-600 text-blue-500"/>
+                            <span className="text-[10px] text-gray-300">Повтор</span>
+                        </label>
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                            <input type="checkbox" checked={element.videoOptions?.muted || false} onChange={(e) => handleVideoOptionChange('muted', e.target.checked)} className="rounded bg-gray-700 border-gray-600 text-blue-500"/>
+                            <span className="text-[10px] text-gray-300">Звук выкл</span>
+                        </label>
+                    </div>
+                )}
+            </div>
+        )}
 
         {/* SCRIPTS (COMPONENTS) SECTION */}
         <div className="space-y-3 bg-gray-800/30 p-3 rounded border border-gray-700">
@@ -472,6 +553,25 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   <label htmlFor="autoFontSize" className="text-[10px] text-gray-400 cursor-pointer select-none">Авторазмер</label>
                 </div>
              </div>
+
+             {/* Fonts Dropdown */}
+             <div className="space-y-1">
+                 <label className="text-[10px] text-gray-500 mb-1 block">Шрифт</label>
+                 <select
+                     value={element.style?.fontFamily || 'sans-serif'}
+                     onChange={(e) => handleStyleChange('fontFamily', e.target.value)}
+                     className="w-full bg-gray-800 text-xs text-gray-200 p-2 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
+                 >
+                     <option value="sans-serif">System Sans</option>
+                     <option value="serif">System Serif</option>
+                     <option value="monospace">System Mono</option>
+                     <optgroup label="Google Fonts">
+                        {GOOGLE_FONTS.map(font => (
+                            <option key={font} value={font}>{font}</option>
+                        ))}
+                     </optgroup>
+                 </select>
+             </div>
             
             <div className="grid grid-cols-2 gap-2">
                <div>
@@ -496,6 +596,18 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                     <span className="text-xs text-gray-300 font-mono uppercase truncate">{element.style?.color}</span>
                   </div>
                </div>
+            </div>
+
+             {/* Text Shadow & Highlight */}
+             <div className="space-y-1">
+                 <label className="text-[10px] text-gray-500 mb-1 block">Тень / Выделение</label>
+                 <input
+                     type="text"
+                     value={element.style?.textShadow || ''}
+                     onChange={(e) => handleStyleChange('textShadow', e.target.value)}
+                     placeholder="2px 2px 4px rgba(0,0,0,0.5)"
+                     className="w-full bg-gray-800 text-xs text-gray-200 p-2 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
+                 />
             </div>
 
             <div className="flex items-center gap-2">
